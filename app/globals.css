@@ -1,1 +1,68 @@
 @import "tailwindcss";
+
+@theme {
+  --color-paper: #FBFAF5;
+  --color-grid: #CBD7DD;
+  --color-margin-rule: #E8A6A6;
+  --color-ink: #16305C;
+  --color-graphite: #4A5560;
+  --color-pencil: #68727F;
+  --color-highlighter: #F2DC96;
+  --color-stamp: #B4453C;
+  --color-card: #FFFFFF;
+  --color-card-border: #D9E0E6;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-hand: var(--font-caveat), cursive;
+}
+
+:root {
+  /* Bounded card rotation. Flattened on small screens by the media query below. */
+  --rotate: 1.2deg;
+  --rotate-alt: -1deg;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --rotate: 0deg;
+    --rotate-alt: 0deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-graphite);
+  font-family: var(--font-body);
+  /* Long unbroken strings must never force horizontal scroll. */
+  overflow-wrap: anywhere;
+}
+
+/* Skip link, visible only on focus. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--color-card);
+  border: 2px solid var(--color-stamp);
+  border-radius: 4px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-stamp);
+  outline-offset: 2px;
+}
