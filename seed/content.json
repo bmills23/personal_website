@@ -3,8 +3,9 @@
   "hero": {
     "kicker": "Entry 001 · Denver, Colorado",
     "name": "Bryan G. Mills",
-    "lede": "Geologist-in-Training for the State of Colorado. Founder of TerminaLLM LLC, where I build TerminaLLM and Parolejo.",
-    "stamp": "EST. 2026"
+    "lede": "Geologist-in-Training for the State of Colorado. Founder of TerminaLLM LLC, where I build TerminaLLM and Parolejo.",
+    "stamp": "EST. 2026",
+    "highlights": ["TerminaLLM LLC", "TerminaLLM", "Parolejo"]
   },
   "about": {
     "heading": "Two careers, one set of tools",
@@ -75,5 +76,9 @@
       { "label": "GitHub", "url": "https://github.com/bmills23/" },
       { "label": "LinkedIn", "url": "https://www.linkedin.com/in/bryangmills/" }
     ]
+  },
+  "sections": {
+    "products": { "kicker": "Shipped" },
+    "work": { "kicker": "Two tracks, at once" }
   }
 }

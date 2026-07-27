@@ -2,11 +2,17 @@ import type { Content } from '@/lib/content/schema'
 import { Reveal } from '@/components/shell/Reveal'
 import { WrittenHeading } from '@/components/shell/WrittenHeading'
 
-export function Tracks({ tracks }: { tracks: Content['tracks'] }) {
+export function Tracks({
+  tracks,
+  kicker,
+}: {
+  tracks: Content['tracks']
+  kicker: string
+}) {
   return (
     <section id="work" className="border-t border-card-border py-14">
       <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
-        Two tracks, at once
+        {kicker}
       </p>
       <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
         Work

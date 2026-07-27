@@ -1,6 +1,8 @@
 import type { Content } from '@/lib/content/schema'
 import { Stamp } from '@/components/shell/Stamp'
 import { MarginNote } from '@/components/shell/MarginNote'
+import { Highlight } from '@/components/shell/Highlight'
+import { splitHighlights } from '@/lib/highlight'
 
 /**
  * The hero's h1 is the page's Largest Contentful Paint element and the
@@ -20,7 +22,13 @@ export function Hero({ hero }: { hero: Content['hero'] }) {
         {hero.name}
       </h1>
       <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-graphite">
-        {hero.lede}
+        {splitHighlights(hero.lede, hero.highlights).map((segment, i) =>
+          segment.mark ? (
+            <Highlight key={i}>{segment.text}</Highlight>
+          ) : (
+            <span key={i}>{segment.text}</span>
+          ),
+        )}
       </p>
       <div className="mt-8">
         <MarginNote>&#8599; two careers, one set of tools</MarginNote>

@@ -15,6 +15,7 @@ export const EDITABLE_PATTERNS = [
   'hero.name',
   'hero.lede',
   'hero.stamp',
+  'hero.highlights.#',
   'about.heading',
   'about.marginNote',
   'about.paragraphs.#',
@@ -34,6 +35,8 @@ export const EDITABLE_PATTERNS = [
   'footer.note',
   'footer.links.#.label',
   'footer.links.#.url',
+  'sections.products.kicker',
+  'sections.work.kicker',
 ] as const
 
 const INDEX_RE = /^(0|[1-9][0-9]?)$/

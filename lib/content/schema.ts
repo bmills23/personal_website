@@ -17,6 +17,7 @@ export const ARRAY_LIMITS = {
   'products.links': 4,
   'footer.links': 6,
   'tracks.entries': 10,
+  'hero.highlights': 4,
 } as const
 
 const linkSchema = z.object({
@@ -54,6 +55,7 @@ export const contentSchema = z.object({
     name: z.string().min(1).max(60),
     lede: z.string().min(1).max(400),
     stamp: z.string().min(1).max(20),
+    highlights: z.array(z.string().min(1).max(60)).max(ARRAY_LIMITS['hero.highlights']),
   }),
   about: z.object({
     heading: z.string().min(1).max(80),
@@ -69,6 +71,10 @@ export const contentSchema = z.object({
   footer: z.object({
     note: z.string().max(120),
     links: z.array(linkSchema).max(ARRAY_LIMITS['footer.links']),
+  }),
+  sections: z.object({
+    products: z.object({ kicker: z.string().min(1).max(60) }),
+    work: z.object({ kicker: z.string().min(1).max(60) }),
   }),
 })
 

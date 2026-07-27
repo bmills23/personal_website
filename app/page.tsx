@@ -12,8 +12,8 @@ export default async function Home() {
       <main id="main" className="mx-auto max-w-4xl px-5 sm:px-8">
         <Hero hero={content.hero} />
         <About about={content.about} />
-        <Products products={content.products} />
-        <Tracks tracks={content.tracks} />
+        <Products products={content.products} kicker={content.sections.products.kicker} />
+        <Tracks tracks={content.tracks} kicker={content.sections.work.kicker} />
       </main>
       <Footer note={content.footer.note} links={content.footer.links} />
     </>

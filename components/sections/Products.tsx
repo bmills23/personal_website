@@ -4,11 +4,17 @@ import { Reveal } from '@/components/shell/Reveal'
 import { WrittenHeading } from '@/components/shell/WrittenHeading'
 import { Icon } from '@/components/Icon'
 
-export function Products({ products }: { products: Content['products'] }) {
+export function Products({
+  products,
+  kicker,
+}: {
+  products: Content['products']
+  kicker: string
+}) {
   return (
     <section id="products" className="border-t border-card-border py-14">
       <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
-        Shipped
+        {kicker}
       </p>
       <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
         Products
