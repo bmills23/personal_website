@@ -281,6 +281,61 @@ test('Reveal-wrapped body content is visible with JavaScript disabled', async ({
   await context.close()
 })
 
+// --- Reveal-wrapped content actually becomes visible with JavaScript on ---
+//
+// The test above (and the mutation-tested CSS-structure checks in
+// tests/reveal.test.tsx) prove the hidden state is CSS-only and never ships
+// to a no-JS visitor. Neither proves the other half of the contract: for a
+// JS-enabled, no-reduced-motion visitor (the majority of traffic), the
+// `.js-ready [data-reveal]` hidden rule DOES apply at first paint, and
+// recovery depends entirely on Reveal.tsx's IntersectionObserver firing,
+// setting data-revealed="true", and the
+// `.js-ready [data-reveal][data-revealed='true']` un-hide rule in
+// app/globals.css existing and matching. If that un-hide rule were ever
+// deleted, renamed, or the observer logic broke, About, both product cards,
+// and both work tracks would be permanently invisible to that majority of
+// visitors, while every other assertion in this suite, including the
+// toBeVisible() calls elsewhere in this file, would keep passing:
+// toBeVisible() explicitly ignores opacity, so an opacity:0 element that
+// never recovers still satisfies it.
+//
+// This follows the exact pattern e2e-prod/hydration.spec.ts uses for
+// WrittenHeading's data-written flip and computed clip-path/animationName:
+// scroll the real target into view, wait for the real data-revealed flip,
+// then read computed opacity directly rather than trusting toBeVisible().
+//
+// Proven to actually fail: with the
+// `.js-ready [data-reveal][data-revealed='true']` rule temporarily deleted
+// from app/globals.css, this test times out polling for opacity to reach
+// '1' (observed stuck at '0'). See the fix report for the captured failure
+// output; app/globals.css was restored byte-identical afterward.
+test('Reveal-wrapped content genuinely becomes visible (computed opacity) with JavaScript enabled', async ({
+  page,
+}) => {
+  await page.goto('/')
+
+  const jsReady = await page.evaluate(() =>
+    document.documentElement.classList.contains('js-ready'),
+  )
+  expect(jsReady).toBe(true)
+
+  const region = page.locator('#products [data-reveal]').first()
+  await region.scrollIntoViewIfNeeded()
+
+  await expect(region).toHaveAttribute('data-revealed', 'true')
+
+  // Poll rather than a fixed sleep: not flaky under load, but still fails
+  // (times out) if opacity never reaches 1, which is the actual regression
+  // this test exists to catch. The first product card has delay = i * 0.08
+  // with i === 0, so the only wait budget needed is the 0.5s transition
+  // itself; 5s leaves generous headroom.
+  await expect
+    .poll(() => region.evaluate((el) => getComputedStyle(el).opacity), {
+      timeout: 5000,
+    })
+    .toBe('1')
+})
+
 // --- Carried-forward test 3: no editing affordances for a logged-out visitor
 //
 // No content editor exists yet (that ships in a later phase), so this

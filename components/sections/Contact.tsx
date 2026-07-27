@@ -4,12 +4,16 @@ import { ContactForm } from '@/components/ContactForm'
 
 export function Contact({ contact }: { contact: Content['contact'] }) {
   // Server-only: read directly here rather than threading it through props
-  // from a higher layer, and never logged or otherwise surfaced except as
-  // the mailto fallback below. This is the address the contact form itself
-  // delivers to (see lib/contact/mailer.ts), so publishing it as a no-JS
-  // fallback tells the visitor nothing the working form does not already
-  // reveal as its destination.
-  const fallbackEmail = process.env.CONTACT_TO_EMAIL
+  // from a higher layer. Deliberately NOT CONTACT_TO_EMAIL: that variable is
+  // the private delivery address the working form's server route sends to
+  // (see lib/contact/mailer.ts), and the working form itself never discloses
+  // it, it only POSTs to /api/contact. PUBLIC_CONTACT_EMAIL is a separate,
+  // intentionally publishable address for the no-JS fallback below, which
+  // renders into the raw HTML of every page where email harvesters can read
+  // it. If it is ever unset, ContactForm renders the fallback with no
+  // address at all rather than falling back to the delivery address; see
+  // the comment on the `fallbackEmail` prop there.
+  const publicEmail = process.env.PUBLIC_CONTACT_EMAIL
   return (
     <section id="contact" className="border-t border-card-border py-14">
       <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
@@ -24,7 +28,7 @@ export function Contact({ contact }: { contact: Content['contact'] }) {
         </p>
       ) : null}
       <div className="mt-7">
-        <ContactForm fallbackEmail={fallbackEmail} />
+        <ContactForm fallbackEmail={publicEmail} />
       </div>
     </section>
   )

@@ -211,4 +211,36 @@ describe('the no-JS reveal safety design (globals.css)', () => {
     // stylesheet, e.g. outside the reduced-motion media query.
     expect(offenders).toEqual([])
   })
+
+  // The component's `variant` prop and the CSS `[data-reveal='...']`
+  // selectors are two independent literals that have to agree by hand: the
+  // component's `data-reveal={variant}` attribute is only ever hidden if
+  // some `.js-ready [data-reveal='<value>']` rule matches it. Nothing in
+  // TypeScript ties them together (data-* attribute values are not typed),
+  // so renaming one side, e.g. Reveal's variant literal 'card' to 'cards',
+  // or adding a third variant to the prop type without a matching CSS rule,
+  // would compile and render fine while silently losing the intended hidden
+  // state for that variant (it would just render already visible, with no
+  // failing test anywhere else in this file: the tests above only check
+  // that *some* guarded [data-reveal] rule exists, not that every variant
+  // value the component can emit has one). This reads both sides as text
+  // and asserts the sets of literal values are exactly equal.
+  it('the CSS hidden-variant selectors match the component variant prop values exactly', () => {
+    const componentSource = readFileSync(
+      path.resolve(__dirname, '../components/shell/Reveal.tsx'),
+      'utf8',
+    )
+    const variantType = /variant\?:\s*((?:'[a-z]+'\s*\|?\s*)+)/.exec(componentSource)
+    expect(variantType, 'variant prop type not found in Reveal.tsx').not.toBeNull()
+    const componentVariants = new Set(
+      [...variantType![1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]),
+    )
+    expect(componentVariants.size).toBeGreaterThan(0)
+
+    const cssVariants = new Set(
+      [...css.matchAll(/\[data-reveal='([a-z]+)'\]/g)].map((m) => m[1]),
+    )
+
+    expect(cssVariants).toEqual(componentVariants)
+  })
 })
