@@ -2245,6 +2245,243 @@ git commit -m "Add products and two-track work sections"
 
 ---
 
+## Task 8b: Highlighter, editable kickers, and icon trim
+
+Added 2026-07-27 after reviewing the rendered page. Three items: a spec requirement that was never implemented, a content-fidelity gap found in Task 8's review, and dead weight.
+
+**Files:**
+- Modify: `lib/content/schema.ts`, `lib/content/paths.ts`, `seed/content.json`, `components/sections/Hero.tsx`, `components/sections/Products.tsx`, `components/sections/Tracks.tsx`, `scripts/icon-list.mjs`
+- Create: `lib/highlight.tsx`, `tests/highlight.test.tsx`
+- Delete: `public/icons/terminal-window.svg`, `public/icons/translate.svg`, `public/icons/envelope-simple.svg`, `public/icons/map-pin.svg`
+
+**Interfaces:**
+- Consumes: `Highlight` (Task 6), `contentSchema` and `ARRAY_LIMITS` (Task 3).
+- Produces: `splitHighlights(text: string, phrases: readonly string[]): Array<{text: string, mark: boolean}>` from `lib/highlight.tsx`; new content fields `hero.highlights[]`, `sections.products.kicker`, `sections.work.kicker`.
+
+### Why each item
+
+**The highlighter was specified and never built.** The design spec's information architecture calls for the hero's two-track sentence to have the company and product names struck through with highlighter. `components/shell/Highlight.tsx` exists from Task 6 and is used nowhere. The only yellow on the page is tape.
+
+**Section kickers are uneditable.** "Shipped" and "Two tracks, at once" are hardcoded with no home in the schema. The owner ruled that **kickers become editable content while the headings "Products" and "Work" stay in code**, because the headings are anchor targets the nav links to by name, and renaming one from a browser would silently break navigation. This is the same reasoning that kept nav links in code.
+
+**Four of five generated icons are unused.** Only `arrow-up-right` reaches the page. Task 9's contact form uses none.
+
+### The design decision that matters here
+
+Highlight phrases are stored as **a separate array of strings**, not as inline markup in the lede.
+
+The alternative, a syntax like `==TerminaLLM==` inside the text, would surface those `==` characters to the owner when editing the sentence in the browser later, since editing is plaintext `contentEditable`. Storing phrases separately keeps the editable text clean.
+
+The cost is that a phrase which no longer appears in the text silently stops highlighting. That is the right failure (nothing breaks, the marker just does not render) and it is covered by a test.
+
+- [ ] **Step 1: Write the failing splitter test**
+
+`tests/highlight.test.tsx`:
+```tsx
+import { describe, it, expect } from 'vitest'
+import { splitHighlights } from '@/lib/highlight'
+
+describe('splitHighlights', () => {
+  it('returns the whole string unmarked when there are no phrases', () => {
+    expect(splitHighlights('hello world', [])).toEqual([{ text: 'hello world', mark: false }])
+  })
+
+  it('marks a single phrase', () => {
+    expect(splitHighlights('I build Parolejo daily', ['Parolejo'])).toEqual([
+      { text: 'I build ', mark: false },
+      { text: 'Parolejo', mark: true },
+      { text: ' daily', mark: false },
+    ])
+  })
+
+  it('marks the longest phrase first when phrases overlap', () => {
+    // "TerminaLLM LLC" and "TerminaLLM" both match at index 0. The longer one wins,
+    // otherwise "TerminaLLM" would consume the prefix and orphan " LLC".
+    const result = splitHighlights('Founder of TerminaLLM LLC today', ['TerminaLLM', 'TerminaLLM LLC'])
+    expect(result).toEqual([
+      { text: 'Founder of ', mark: false },
+      { text: 'TerminaLLM LLC', mark: true },
+      { text: ' today', mark: false },
+    ])
+  })
+
+  it('marks every occurrence of a phrase', () => {
+    const result = splitHighlights('a X b X c', ['X'])
+    expect(result.filter((s) => s.mark).length).toBe(2)
+  })
+
+  it('ignores a phrase that is not present', () => {
+    expect(splitHighlights('hello', ['absent'])).toEqual([{ text: 'hello', mark: false }])
+  })
+
+  it('is case sensitive, so it never marks the wrong word', () => {
+    expect(splitHighlights('the terminallm app', ['TerminaLLM'])).toEqual([
+      { text: 'the terminallm app', mark: false },
+    ])
+  })
+
+  it('never loses or duplicates text', () => {
+    const text = 'Founder of TerminaLLM LLC, building TerminaLLM and Parolejo.'
+    const phrases = ['TerminaLLM LLC', 'TerminaLLM', 'Parolejo']
+    expect(splitHighlights(text, phrases).map((s) => s.text).join('')).toBe(text)
+  })
+
+  it('ignores empty phrases rather than looping forever', () => {
+    expect(splitHighlights('hello', [''])).toEqual([{ text: 'hello', mark: false }])
+  })
+})
+```
+
+The last two matter most. "Never loses or duplicates text" is the invariant that makes this safe to run over a person's bio, and the empty-phrase case is an infinite-loop guard.
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `npx vitest run tests/highlight.test.tsx`
+Expected: FAIL, cannot resolve `@/lib/highlight`.
+
+- [ ] **Step 3: Implement the splitter**
+
+`lib/highlight.tsx`:
+```tsx
+export type Segment = { text: string; mark: boolean }
+
+/**
+ * Splits text into marked and unmarked segments. Phrases are matched longest
+ * first so an overlapping pair like "TerminaLLM LLC" and "TerminaLLM" marks the
+ * longer one rather than orphaning its tail. Matching is exact and case
+ * sensitive: a phrase that no longer appears simply stops highlighting, which is
+ * the correct failure for editable text.
+ */
+export function splitHighlights(text: string, phrases: readonly string[]): Segment[] {
+  const wanted = [...new Set(phrases)].filter((p) => p.length > 0).sort((a, b) => b.length - a.length)
+  if (wanted.length === 0) return [{ text, mark: false }]
+
+  const segments: Segment[] = []
+  let buffer = ''
+  let i = 0
+
+  while (i < text.length) {
+    const hit = wanted.find((p) => text.startsWith(p, i))
+    if (hit) {
+      if (buffer) {
+        segments.push({ text: buffer, mark: false })
+        buffer = ''
+      }
+      segments.push({ text: hit, mark: true })
+      i += hit.length
+    } else {
+      buffer += text[i]
+      i += 1
+    }
+  }
+  if (buffer) segments.push({ text: buffer, mark: false })
+  return segments.length > 0 ? segments : [{ text, mark: false }]
+}
+```
+
+- [ ] **Step 4: Run the test to green**
+
+Run: `npx vitest run tests/highlight.test.tsx`
+Expected: PASS, 8 tests.
+
+- [ ] **Step 5: Extend the schema**
+
+In `lib/content/schema.ts`, add to `ARRAY_LIMITS`: `'hero.highlights': 4`. Add to the `hero` object: `highlights: z.array(z.string().min(1).max(60)).max(ARRAY_LIMITS['hero.highlights'])`. Add a new top-level key:
+
+```ts
+  sections: z.object({
+    products: z.object({ kicker: z.string().min(1).max(60) }),
+    work: z.object({ kicker: z.string().min(1).max(60) }),
+  }),
+```
+
+In `lib/content/paths.ts`, add to `EDITABLE_PATTERNS`: `'hero.highlights.#'`, `'sections.products.kicker'`, `'sections.work.kicker'`. Confirm the per-pattern index cap derivation picks up `hero.highlights` from `ARRAY_LIMITS`; if the key naming does not match what `arrayKeyFor` expects, fix the mapping rather than special-casing.
+
+- [ ] **Step 6: Update the seed**
+
+In `seed/content.json`, add to `hero`:
+```json
+    "highlights": ["TerminaLLM LLC", "TerminaLLM", "Parolejo"]
+```
+and a new top-level block:
+```json
+  "sections": {
+    "products": { "kicker": "Shipped" },
+    "work": { "kicker": "Two tracks, at once" }
+  },
+```
+
+Also fix the hero lede's line break by joining the company name with a non-breaking space, so "TerminaLLM" and "LLC" cannot split across lines:
+```json
+    "lede": "Geologist-in-Training for the State of Colorado. Founder of TerminaLLM LLC, where I build TerminaLLM and Parolejo."
+```
+
+**Important:** if you use the escape ` ` in the JSON, the highlight phrase `"TerminaLLM LLC"` must contain the same non-breaking space, or it will no longer match. Keep them consistent and let the "never loses text" test catch you if not.
+
+Then re-seed the database:
+```bash
+set -a && source .env.local && set +a
+node -e '
+import("@neondatabase/serverless").then(async ({ neon }) => {
+  const { readFileSync } = await import("node:fs")
+  const sql = neon(process.env.DATABASE_URL)
+  const doc = readFileSync("seed/content.json", "utf8")
+  await sql`update content set doc = ${doc}::jsonb, updated_at = now() where id = 1`
+  console.log("reseeded")
+})'
+```
+
+- [ ] **Step 7: Apply the highlighter in the hero**
+
+In `components/sections/Hero.tsx`, replace the bare `{hero.lede}` with the split rendering:
+```tsx
+      <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-graphite">
+        {splitHighlights(hero.lede, hero.highlights).map((segment, i) =>
+          segment.mark ? (
+            <Highlight key={i}>{segment.text}</Highlight>
+          ) : (
+            <span key={i}>{segment.text}</span>
+          ),
+        )}
+      </p>
+```
+with imports for `splitHighlights` and `Highlight`. The hero still must not animate.
+
+- [ ] **Step 8: Use the editable kickers**
+
+In `components/sections/Products.tsx`, replace the hardcoded `Shipped` with `{sections.products.kicker}`, and in `components/sections/Tracks.tsx` replace `Two tracks, at once` with `{sections.work.kicker}`. Pass the new data down from `app/page.tsx`. Leave the `Products` and `Work` headings hardcoded: they are anchor targets the nav references by name.
+
+- [ ] **Step 9: Trim the icons**
+
+Reduce `scripts/icon-list.mjs` to:
+```js
+export const ICONS = ['arrow-up-right']
+```
+and `git rm` the four now-unused SVGs. Re-run `npm run icons` and confirm the test that asserts one file per declared icon still passes.
+
+- [ ] **Step 10: Verify and commit**
+
+```bash
+npm test
+npm run build
+npm run dev &
+sleep 6
+npm run check:mobile
+kill %1
+```
+
+Look at the hero: the three highlighted phrases should read as marker strokes behind the words, sitting behind the text rather than over it, and the sentence should no longer break between "TerminaLLM" and "LLC".
+
+```bash
+git add -A
+git commit -m "Add hero highlighter, editable section kickers, trim unused icons
+
+Highlight phrases are stored as a separate array rather than inline
+markup, so the editable sentence stays free of syntax characters."
+```
+
+---
+
 ## Task 9: Contact form
 
 **Files:**
