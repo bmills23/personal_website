@@ -47,12 +47,33 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Skip link, visible only on focus. */
+/* Skip link, visible only on focus. Uses the clip-based visually-hidden
+   pattern rather than an off-canvas negative offset: pushing an element far
+   outside the viewport (e.g. left: -9999px) still contributes to the page's
+   scrollable bounding box in some browsers and reads as horizontal overflow
+   to any bounding-rect check, including ours. Clipping to a 1px box avoids
+   that while keeping the same on-focus appearance. */
 .skip-link {
   position: absolute;
-  left: -9999px;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  /* clip crops all painted content to a zero-size box, so no negative
+     margin is needed to pull the box off-screen; the border box itself
+     stays within the viewport at (0,0). */
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .skip-link:focus {
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
   left: 1rem;
   top: 1rem;
   z-index: 100;
