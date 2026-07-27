@@ -36,28 +36,50 @@ test('server-renders content for link-preview crawlers', async ({ request }) => 
   // regression to client-side fetching. This is the test that justifies
   // the migration off the Vite SPA: link-preview crawlers read raw HTML.
   const response = await request.get('/')
+  // A 500 (or any non-2xx) must not be able to masquerade as a content
+  // failure below: fail on the status first, with its own clear message.
+  expect(response.ok(), `expected 200 OK, got ${response.status()}`).toBe(true)
   const html = await response.text()
 
-  // Assertions are scoped to <body>, not the whole document. <head>
-  // metadata (the <title> tag, and the openGraph/description meta tags in
-  // app/layout.tsx) independently contains "Bryan G. Mills", "TerminaLLM",
-  // and "Parolejo" as static strings, so a naive `html.includes(...)`
-  // check against the full document would still pass even if the visible
-  // page content were regressed to render only after client-side
-  // JavaScript ran (verified: reproduced exactly this by temporarily
-  // making Hero.tsx render its <h1> from post-mount client state; the
-  // rendered <h1> was empty in the raw HTML, but a full-document
-  // `toContain('Bryan G. Mills')` check still passed because of <title>
-  // alone). Checking <body> only, and requiring the name to be inside an
-  // <h1> specifically, closes that gap.
+  // Every assertion below is scoped to the specific element that should
+  // carry the string, not to <body> or the whole document as a substring
+  // haystack. Two rounds of that mistake were found and fixed here:
+  //
+  // Round 1: checking the whole document. <head> metadata (the <title>
+  // tag and the openGraph/description meta tags in app/layout.tsx)
+  // independently contains "Bryan G. Mills", "TerminaLLM", and "Parolejo"
+  // as static strings, so `html.includes(...)` against the full document
+  // would still pass even if the visible page content were regressed to
+  // render only after client-side JavaScript ran.
+  //
+  // Round 2: checking <body> as a whole was not enough either. "TerminaLLM"
+  // is a substring of the Work section's "TerminaLLM LLC" heading, so if
+  // ONLY the Products section regressed to client-only rendering,
+  // `body.toContain('TerminaLLM')` would still pass, satisfied by the
+  // unrelated, still-server-rendered Work entry. Likewise "State of
+  // Colorado" also appears inside an About paragraph ("For the State of
+  // Colorado I work as..."), so a body-wide check could not tell a broken
+  // Work section from an intact About section either.
+  //
+  // Anchoring each string to its own heading tag closes both gaps: each
+  // regex only matches if that exact string is the entire text content of
+  // its specific <h1>/<h3>, which is only true if that section's own
+  // server render produced it. All four were mutation-tested individually;
+  // see the "Carried-forward test evidence" section of the task report.
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/)
   expect(bodyMatch).not.toBeNull()
   const body = bodyMatch![1]
 
-  expect(body).toMatch(/<h1[^>]*>[^<]*Bryan G\. Mills[^<]*<\/h1>/)
-  expect(body).toContain('TerminaLLM')
-  expect(body).toContain('Parolejo')
-  expect(body).toContain('State of Colorado')
+  // Hero <h1> (app/components/sections/Hero.tsx).
+  expect(body).toMatch(/<h1[^>]*>Bryan G\. Mills<\/h1>/)
+  // Products section, product card heading (Products.tsx).
+  expect(body).toMatch(/<h3[^>]*>TerminaLLM<\/h3>/)
+  expect(body).toMatch(/<h3[^>]*>Parolejo<\/h3>/)
+  // Work section, track entry org heading (Tracks.tsx). Anchored to the
+  // exact text "State of Colorado" inside an <h3>, which the About
+  // section's prose mention of the same phrase (inside a <p>) cannot
+  // satisfy.
+  expect(body).toMatch(/<h3[^>]*>State of Colorado<\/h3>/)
 })
 
 test('has no horizontal overflow on mobile', async ({ page }) => {
@@ -140,8 +162,12 @@ test('section headings are visible with JavaScript disabled', async ({ browser }
     // page.evaluate still executes via CDP even with javaScriptEnabled:
     // false (that setting only disables page-authored scripts, confirmed
     // by probing it directly), so this reads the real computed style.
+    // No fallback to `el` if the selector misses: if `.write-ink` stops
+    // matching, that is itself a regression worth failing loudly on,
+    // rather than silently checking the wrong element and passing.
     const clipPath = await heading.evaluate((el) => {
-      const ink = el.querySelector('.write-ink') ?? el
+      const ink = el.querySelector('.write-ink')
+      if (!ink) throw new Error('".write-ink" not found inside heading; selector may have changed')
       return getComputedStyle(ink).clipPath
     })
     expect(clipPath).toBe('none')

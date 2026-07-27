@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:prod": "playwright test --config=playwright.prod.config.ts",
+    "e2e:all": "npm run e2e && npm run e2e:prod",
     "check:mobile": "node scripts/check-mobile.mjs"
   },
   "dependencies": {
