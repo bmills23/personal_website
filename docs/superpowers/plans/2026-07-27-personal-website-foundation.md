@@ -125,8 +125,8 @@ rm -rf src dist public/.nojekyll index.html vite.config.js postcss.config.js esl
     "@playwright/test": "1.62.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.13.3",
-    "@types/react": "19.2.8",
-    "@types/react-dom": "19.2.8",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vitest": "4.1.10"
