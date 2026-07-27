@@ -61,14 +61,19 @@ rather than removing them.
 | Margin rule | `#E8A6A6` | Single vertical line at the left margin |
 | Ink | `#16305C` | Headings, wordmark, links |
 | Graphite | `#4A5560` | Body copy |
-| Pencil | `#6B7683` | Labels, metadata, captions |
+| Pencil | `#68727F` | Labels, metadata, captions |
 | Highlighter | `#F2DC96` | Marker stroke behind key phrases, top edge at 62% |
 | Stamp | `#B4453C` | Rubber stamp, section markers, focus rings |
 | Card | `#FFFFFF` on `#D9E0E6` | Taped cards |
 
-Pencil was darkened from an earlier `#8A939E`, which measured near 3:1 against paper and failed
-WCAG AA for small text. Every foreground and background pairing must be contrast-checked during
-implementation rather than judged by eye.
+Pencil took two rounds of darkening, which is why the contrast check is a test and not a habit.
+The original `#8A939E` measured 2.98:1 on paper. Its replacement `#6B7683` measured 4.42:1, still
+under AA, and was only caught because the test was written before the palette. The shipped value
+is `#68727F` at 4.67:1 on paper and 4.88:1 on card.
+
+Note for anyone eyeballing this later: paper (`#FBFAF5`) is slightly darker than the white card,
+so **paper is the harder background**, not the card. Every foreground and background pairing must
+be contrast-checked, never judged by eye.
 
 ### Typography
 
@@ -268,7 +273,7 @@ development, mail is printed to the console and no Resend key is needed.
 
 ## 6. Accessibility
 
-- Pencil grey darkened to `#6B7683`; all pairings contrast-checked during implementation.
+- Pencil grey darkened to `#68727F`; all pairings contrast-checked during implementation.
 - Skip link to main content.
 - Visible focus rings in stamp red.
 - Editable regions labelled and keyboard-reachable in edit mode.

@@ -16,7 +16,7 @@
 - **No external CDN requests.** Fonts are self-hosted through `next/font`, icons ship as static local SVG.
 - **Card rotation is at most 1.5 degrees** and resolves to `0deg` at the `sm` breakpoint via the `--rotate` custom property.
 - **All motion is disabled under `prefers-reduced-motion`.**
-- **Every foreground/background colour pairing must meet WCAG AA** (4.5:1 for text under 18.66px, 3:1 above). Pencil is `#6B7683`, never the earlier `#8A939E`.
+- **Every foreground/background colour pairing must meet WCAG AA** (4.5:1 for text under 18.66px, 3:1 above). Pencil is `#68727F`. Two earlier values failed: `#8A939E` at 2.98:1 and `#6B7683` at 4.42:1, both on paper. Note that paper (`#FBFAF5`) is a *harder* background than the white card, being darker than `#FFFFFF`.
 - **Secrets never enter git.** `.env.local` is gitignored and stays that way.
 - **Node 24, npm 11.** TypeScript throughout, `strict: true`.
 
@@ -330,10 +330,10 @@ describe('palette meets WCAG AA', () => {
     expect(contrastRatio('#4A5560', PAPER)).toBeGreaterThanOrEqual(4.5)
   })
   it('pencil on paper passes for small text', () => {
-    expect(contrastRatio('#6B7683', PAPER)).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio('#68727F', PAPER)).toBeGreaterThanOrEqual(4.5)
   })
   it('pencil on card passes for small text', () => {
-    expect(contrastRatio('#6B7683', CARD)).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio('#68727F', CARD)).toBeGreaterThanOrEqual(4.5)
   })
   it('stamp on paper passes for large text and UI', () => {
     expect(contrastRatio('#B4453C', PAPER)).toBeGreaterThanOrEqual(3)
@@ -378,7 +378,7 @@ export function contrastRatio(a: string, b: string): number {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/contrast.test.ts`
-Expected: PASS, 8 tests. If "pencil on card" fails, darken `#6B7683` further and update both the test and the palette; white is a harsher background than paper.
+Expected: PASS, 8 tests. If "pencil on card" fails, darken `#68727F` further and update both the test and the palette; white is a harsher background than paper.
 
 - [ ] **Step 5: Define the theme tokens**
 
@@ -392,7 +392,7 @@ Expected: PASS, 8 tests. If "pencil on card" fails, darken `#6B7683` further and
   --color-margin-rule: #E8A6A6;
   --color-ink: #16305C;
   --color-graphite: #4A5560;
-  --color-pencil: #6B7683;
+  --color-pencil: #68727F;
   --color-highlighter: #F2DC96;
   --color-stamp: #B4453C;
   --color-card: #FFFFFF;
