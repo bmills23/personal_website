@@ -41,6 +41,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       className={`${fraunces.variable} ${inter.variable} ${caveat.variable}`}
+      // The inline head script below adds js-ready to this element before
+      // React hydrates, so the DOM's className will not match the
+      // server-rendered value at hydration time. Scoped to <html> only: this
+      // tells React to accept the DOM's actual value here rather than
+      // warning about (or, on other elements/attributes, potentially
+      // patching back) the mismatch. Do not add this to <body> or elsewhere;
+      // it is a targeted escape hatch, not a blanket suppression.
+      suppressHydrationWarning
     >
       <head>
         {/* Static string, not user content. Runs synchronously before paint
