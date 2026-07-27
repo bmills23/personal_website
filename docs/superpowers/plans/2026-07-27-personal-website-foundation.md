@@ -272,9 +272,11 @@ Expected: `Ready` on http://localhost:3000, and the page shows "Notebook coming.
 
 - [ ] **Step 9: Verify the production build succeeds**
 
-Run: `npm run build -- --no-lint 2>&1 | tail -20`
+Run: `npx next build 2>&1 | tail -20`
 
-The `icons` script does not exist yet, so run `npx next build` directly for this step. Expected: build completes. This catches `cacheComponents` config errors early, before there is any real code to blame.
+Use `npx next build`, **not** `npm run build`. The `build` script chains `npm run icons` first, and `scripts/build-icons.mjs` does not exist until Task 5, so `npm run build` fails until then. Tasks 1 through 4 verify with `npx next build`; from Task 5 onward `npm run build` works and should be used.
+
+Expected: build completes. This catches `cacheComponents` config errors early, while there is no real code to blame.
 
 - [ ] **Step 10: Commit**
 
@@ -1231,7 +1233,9 @@ function roughen(svg) {
 }
 ```
 
-The `roughen` implementation uses an SVG displacement filter rather than RoughJS, because RoughJS renders to canvas or needs a DOM, and pulling `jsdom` into the build for five icons is not worth it. The visual result (a wobbling, hand-drawn edge) is what the design calls for. If the wobble reads wrong at 20px, tune `baseFrequency` (higher is tighter) and `scale` (higher is wobblier), then re-run `npm run icons` and look again. Remove `roughjs` from `package.json` if this approach is kept.
+The `roughen` implementation uses an SVG displacement filter rather than RoughJS, because RoughJS renders to canvas or needs a DOM, and pulling `jsdom` into the build for five icons is not worth it. The visual result (a wobbling, hand-drawn edge) is what the design calls for. If the wobble reads wrong at 20px, tune `baseFrequency` (higher is tighter) and `scale` (higher is wobblier), then re-run `npm run icons` and look again.
+
+`roughjs` is already absent from `package.json` (Task 1), so there is nothing to remove.
 
 - [ ] **Step 5: Generate the icons and run the test**
 
@@ -1920,15 +1924,15 @@ git commit -m "Add products and two-track work sections"
 ## Task 9: Contact form
 
 **Files:**
-- Create: `lib/contact/rateLimit.ts`, `lib/contact/mailer.ts`, `app/api/contact/route.ts`, `components/ContactForm.tsx`, `components/sections/Contact.tsx`, `tests/contact.test.ts`
+- Create: `lib/contact/schema.ts`, `lib/contact/rateLimit.ts`, `lib/contact/mailer.ts`, `app/api/contact/route.ts`, `components/ContactForm.tsx`, `components/sections/Contact.tsx`, `tests/contact.test.ts`
 - Modify: `app/page.tsx`
 
 **Interfaces:**
 - Consumes: `getSql` (Task 4), `Content` (Task 3).
 - Produces:
+  - `contactInputSchema` and `type ContactInput` from `lib/contact/schema.ts`. The schema lives in `lib/`, not in the route file, so tests and the mailer can import it without pulling in the route handler.
   - `hashIp(ip: string): string` and `isRateLimited(ipHash: string): Promise<boolean>` from `lib/contact/rateLimit.ts`
-  - `sendContactEmail(input: {name, email, body}): Promise<void>` from `lib/contact/mailer.ts`
-  - `contactInputSchema` from `app/api/contact/route.ts`, re-exported for tests
+  - `sendContactEmail(input: ContactInput): Promise<void>` from `lib/contact/mailer.ts`
   - `POST /api/contact`
 
 - [ ] **Step 1: Write the failing test**
