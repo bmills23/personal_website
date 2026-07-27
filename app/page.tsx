@@ -3,6 +3,7 @@ import { Hero } from '@/components/sections/Hero'
 import { About } from '@/components/sections/About'
 import { Products } from '@/components/sections/Products'
 import { Tracks } from '@/components/sections/Tracks'
+import { Contact } from '@/components/sections/Contact'
 import { Footer } from '@/components/shell/Footer'
 
 export default async function Home() {
@@ -14,6 +15,7 @@ export default async function Home() {
         <About about={content.about} />
         <Products products={content.products} kicker={content.sections.products.kicker} />
         <Tracks tracks={content.tracks} kicker={content.sections.work.kicker} />
+        <Contact contact={content.contact} />
       </main>
       <Footer note={content.footer.note} links={content.footer.links} />
     </>
