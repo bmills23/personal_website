@@ -118,12 +118,10 @@ stay in their official unsketched form.
 1. **Nav.** Caveat wordmark, four links, and a login affordance invisible to visitors. Sticky,
    paper-coloured, hairline bottom border.
 2. **Hero.** Kicker ("Entry 001, Denver, Colorado"), name at display size in ink, the two-track
-   sentence with company and products highlighted, and a rotated rubber stamp.
+   sentence with company and products highlighted, and the rotated `EST. 2026` stamp.
 
-   **Unconfirmed:** the stamp reads `EST. 2025` in the mockup, but that founding year was invented
-   for the mockup and has not been confirmed. It must be corrected to the real year TerminaLLM LLC
-   was formed, or the stamp must be changed to something factual, before launch. Likewise "Denver"
-   is assumed from "Colorado" and needs confirming.
+   Confirmed 2026-07-27: TerminaLLM LLC was formed in 2026, and the location is Denver. The
+   mockup's `EST. 2025` was an invention and is corrected to `EST. 2026`.
 3. **About.** Two or three bio paragraphs in graphite, with one handwritten margin note.
 4. **Products.** Two taped cards, TerminaLLM and Parolejo, each with tagline, description, tags,
    and store links. Editable and reorderable.
