@@ -1642,6 +1642,326 @@ Includes a CDP mobile overflow check at a true 390x844 viewport."
 
 ---
 
+## Task 6b: Writing animation and shell corrections
+
+Added 2026-07-27 after reviewing the rendered shell. Two design defects were visible only once a real page existed, and the owner requested a scroll-triggered writing animation. Tasks 7 and 8 consume the components built here, so this lands before them.
+
+**Files:**
+- Modify: `components/shell/PaperBackground.tsx`, `components/shell/TapedCard.tsx`, `components/shell/Reveal.tsx`, `app/globals.css`, `app/layout.tsx`
+- Create: `components/shell/WrittenHeading.tsx`, `components/shell/DrawnUnderline.tsx`, `tests/written-heading.test.tsx`
+
+**Interfaces:**
+- Consumes: theme tokens (Task 2), `Reveal` (Task 6).
+- Produces:
+  - `<WrittenHeading as?: 'h1'|'h2'|'h3' underline?: boolean className?: string>{text}</WrittenHeading>`
+  - `<DrawnUnderline />`
+  - `<Reveal variant?: 'rise' | 'card' delay?: number>` (extended)
+
+### Defect 1: the margin rule is stranded on desktop
+
+`PaperBackground` pins the red rule a fixed distance from the **viewport** edge, while content is centred in a `max-w-4xl` column. On a 1280px screen the rule floats alone in empty space with no relationship to the text. It only looks right on mobile, where the content column nearly fills the screen.
+
+The rule must track the **content column**, not the window.
+
+- [ ] **Step 1: Constrain the rule to the content column**
+
+`components/shell/PaperBackground.tsx`:
+```tsx
+export function PaperBackground() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+      <div
+        className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage:
+            'linear-gradient(var(--color-grid) 1px, transparent 1px), linear-gradient(90deg, var(--color-grid) 1px, transparent 1px)',
+          backgroundSize: '18px 18px',
+        }}
+      />
+      {/* The margin rule belongs to the page's text column, not the window. */}
+      <div className="relative mx-auto h-full w-full max-w-4xl">
+        <div className="absolute inset-y-0 left-2.5 w-px bg-margin-rule opacity-70 sm:left-4" />
+      </div>
+    </div>
+  )
+}
+```
+
+The content column uses `px-5 sm:px-8`, so `left-2.5` / `sm:left-4` places the rule inside the column edge and to the left of the text, which is where a notebook's margin rule sits.
+
+### Defect 2: the tape reads as a highlighter smear
+
+The tape strip is flat, fully opaque `bg-highlighter/60` with hard edges, so it looks painted on rather than stuck on. Real tape is translucent, lets what is under it show through, and has softer ends.
+
+- [ ] **Step 2: Make the tape look like tape**
+
+In `components/shell/TapedCard.tsx`, replace the tape `<span>` with:
+```tsx
+      <span
+        aria-hidden="true"
+        className="absolute -top-3 left-8 h-4 w-16"
+        style={{
+          transform: `rotate(var(${alt ? '--rotate' : '--rotate-alt'}))`,
+          background:
+            'linear-gradient(90deg, rgba(242,220,150,0.15) 0%, rgba(242,220,150,0.5) 12%, rgba(242,220,150,0.5) 88%, rgba(242,220,150,0.15) 100%)',
+          boxShadow: 'inset 0 0 0 1px rgba(203,215,221,0.35)',
+        }}
+      />
+```
+
+Translucency is the point: the graph grid must remain faintly visible through the tape. Check that by eye after building, not only by reading the CSS.
+
+### The writing animation
+
+The owner asked for section headers that write themselves in on scroll, and cards that pop into focus.
+
+**Two constraints shape the implementation.**
+
+First, **header text comes from the database and is editable**, so a genuine stroke-drawn handwriting effect is impossible for it: that requires pre-computed SVG paths per glyph. The header therefore uses an ink wipe, a left-to-right `clip-path` reveal that reads as a pen laying down ink and works on any string. The **underline** is a fixed path, so it gets a real `stroke-dashoffset` draw. That is the one element where the drawing is honest rather than simulated.
+
+Second, and this is the part that is easy to get wrong: **the text must be readable without JavaScript.** The naive approach, a `motion.h2` with `initial={{ clipPath: 'inset(0 100% 0 0)' }}`, server-renders that hidden state into the HTML, so a reader with slow or failed JS sees nothing. The animation is therefore CSS-driven and gated on a `js-ready` class that only exists once JS runs. No JS means no class means no clipping means visible text. Reduced motion means the whole block is skipped, also visible text.
+
+- [ ] **Step 3: Add the js-ready gate**
+
+In `app/layout.tsx`, inside `<head>`, before any content:
+```tsx
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.documentElement.classList.add('js-ready')`,
+          }}
+        />
+```
+
+This runs synchronously before paint, so there is no flash of visible-then-hidden text. It is a static string, not user content.
+
+- [ ] **Step 4: Add the animation CSS**
+
+Append to `app/globals.css`:
+```css
+/* Writing animation. Gated on .js-ready so that with no JavaScript nothing is
+   ever clipped and all text renders normally. Skipped entirely under reduced
+   motion, which is why the hidden state lives inside the media query. */
+@media (prefers-reduced-motion: no-preference) {
+  .js-ready [data-write] .write-ink {
+    clip-path: inset(0 100% 0 0);
+  }
+  .js-ready [data-write][data-written='true'] .write-ink {
+    animation: ink-wipe 0.7s cubic-bezier(0.33, 0, 0.2, 1) forwards;
+  }
+  .js-ready [data-write] .write-underline path {
+    stroke-dasharray: var(--underline-length, 300);
+    stroke-dashoffset: var(--underline-length, 300);
+  }
+  .js-ready [data-write][data-written='true'] .write-underline path {
+    animation: draw-underline 0.55s ease-out 0.45s forwards;
+  }
+}
+
+@keyframes ink-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes draw-underline {
+  to { stroke-dashoffset: 0; }
+}
+```
+
+- [ ] **Step 5: Build DrawnUnderline**
+
+`components/shell/DrawnUnderline.tsx`:
+```tsx
+/** A hand-drawn underline. Decorative, so aria-hidden. The path is fixed,
+ *  which is what makes a real stroke-draw animation possible here. */
+export function DrawnUnderline() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="write-underline mt-1 block h-2 w-full max-w-[14rem]"
+      viewBox="0 0 240 8"
+      preserveAspectRatio="none"
+      fill="none"
+    >
+      <path
+        d="M2 5.5 C 40 2.5, 78 6.5, 118 4 S 200 2, 238 4.5"
+        stroke="var(--color-stamp)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        opacity="0.75"
+      />
+    </svg>
+  )
+}
+```
+
+- [ ] **Step 6: Build WrittenHeading**
+
+`components/shell/WrittenHeading.tsx`:
+```tsx
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { DrawnUnderline } from './DrawnUnderline'
+
+export function WrittenHeading({
+  children,
+  as: Tag = 'h2',
+  underline = true,
+  className = '',
+}: {
+  children: React.ReactNode
+  as?: 'h1' | 'h2' | 'h3'
+  underline?: boolean
+  className?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [written, setWritten] = useState(false)
+
+  useEffect(() => {
+    const node = ref.current
+    if (!node || written) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setWritten(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '-60px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [written])
+
+  return (
+    <div ref={ref} data-write data-written={written ? 'true' : undefined}>
+      <Tag className={className}>
+        <span className="write-ink inline-block">{children}</span>
+      </Tag>
+      {underline ? <DrawnUnderline /> : null}
+    </div>
+  )
+}
+```
+
+The text is a plain child of a plain heading tag: it is in the server-rendered HTML, in the accessibility tree, and selectable, whether or not the animation ever runs.
+
+- [ ] **Step 7: Add the card variant to Reveal**
+
+Extend `components/shell/Reveal.tsx` with an optional `variant`:
+```tsx
+'use client'
+
+import { motion, useReducedMotion } from 'motion/react'
+
+export function Reveal({
+  children,
+  delay = 0,
+  variant = 'rise',
+}: {
+  children: React.ReactNode
+  delay?: number
+  variant?: 'rise' | 'card'
+}) {
+  const reduced = useReducedMotion()
+  if (reduced) return <>{children}</>
+
+  const initial =
+    variant === 'card' ? { opacity: 0, scale: 0.96, y: 10 } : { opacity: 0, y: 16 }
+  const whileInView =
+    variant === 'card' ? { opacity: 1, scale: 1, y: 0 } : { opacity: 1, y: 0 }
+
+  return (
+    <motion.div
+      initial={initial}
+      whileInView={whileInView}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.5, delay, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+```
+
+`scale` is deliberately 0.96 rather than something more dramatic. A card that pops too hard reads as a slideshow transition, not as paper settling onto a page.
+
+- [ ] **Step 8: Tests**
+
+`tests/written-heading.test.tsx` (jsdom environment):
+```tsx
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { WrittenHeading } from '@/components/shell/WrittenHeading'
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    },
+  )
+})
+
+describe('WrittenHeading', () => {
+  it('renders its text even when the animation never runs', () => {
+    render(<WrittenHeading>Two careers, one set of tools</WrittenHeading>)
+    expect(screen.getByText('Two careers, one set of tools')).toBeTruthy()
+  })
+
+  it('renders the requested heading level', () => {
+    render(<WrittenHeading as="h1">Bryan G. Mills</WrittenHeading>)
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Bryan G. Mills')
+  })
+
+  it('marks the underline decorative', () => {
+    const { container } = render(<WrittenHeading>Work</WrittenHeading>)
+    const svg = container.querySelector('svg')
+    expect(svg?.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('omits the underline when asked', () => {
+    const { container } = render(<WrittenHeading underline={false}>Work</WrittenHeading>)
+    expect(container.querySelector('svg')).toBeNull()
+  })
+
+  it('starts unwritten so the animation has somewhere to go', () => {
+    const { container } = render(<WrittenHeading>Work</WrittenHeading>)
+    expect(container.querySelector('[data-write]')?.getAttribute('data-written')).toBeNull()
+  })
+})
+```
+
+Add `@testing-library/react` and `jsdom` as devDependencies if not already present, and configure the jsdom environment for `tests/**/*.test.tsx` specifically rather than switching the whole suite.
+
+- [ ] **Step 9: Verify and commit**
+
+```bash
+npm test
+npm run build
+npm run dev &
+sleep 6
+npm run check:mobile
+kill %1
+```
+
+Overflow must remain 0. `clip-path` does not affect layout, but `scale` can visually exceed a bounding box, so confirm rather than assume.
+
+Also confirm by eye, at desktop width: the margin rule now sits beside the text column rather than out at the window edge, and the graph grid is faintly visible through the tape.
+
+```bash
+git add -A
+git commit -m "Add scroll writing animation, fix margin rule alignment and tape
+
+The ink wipe is CSS-driven and gated on a js-ready class so text
+renders normally without JavaScript, rather than being server-rendered
+in a hidden state."
+```
+
+---
+
 ## Task 7: Hero and About sections
 
 **Files:**
@@ -1698,9 +2018,9 @@ export function About({ about }: { about: Content['about'] }) {
         <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
           About
         </p>
-        <h2 className="font-display text-3xl text-ink sm:text-4xl">
+        <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
           {about.heading}
-        </h2>
+        </WrittenHeading>
         <div className="mt-6 grid gap-8 md:grid-cols-[minmax(0,1fr)_180px]">
           <div className="space-y-4 text-[16px] leading-relaxed text-graphite">
             {about.paragraphs.map((paragraph, i) => (
@@ -1789,10 +2109,12 @@ export function Products({ products }: { products: Content['products'] }) {
       <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
         Shipped
       </p>
-      <h2 className="font-display text-3xl text-ink sm:text-4xl">Products</h2>
+      <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
+        Products
+      </WrittenHeading>
       <div className="mt-8 grid gap-7 md:grid-cols-2">
         {products.map((product, i) => (
-          <Reveal key={product.id} delay={i * 0.08}>
+          <Reveal key={product.id} delay={i * 0.08} variant="card">
             <TapedCard alt={i % 2 === 1} className="h-full">
               <div className="flex items-baseline justify-between gap-3">
                 <h3 className="font-mono text-lg font-semibold text-ink">
@@ -1854,7 +2176,9 @@ export function Tracks({ tracks }: { tracks: Content['tracks'] }) {
       <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
         Two tracks, at once
       </p>
-      <h2 className="font-display text-3xl text-ink sm:text-4xl">Work</h2>
+      <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
+        Work
+      </WrittenHeading>
       <div className="mt-8 grid gap-8 md:grid-cols-2 md:gap-0">
         {tracks.map((track, i) => (
           <Reveal key={track.id} delay={i * 0.08}>
