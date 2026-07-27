@@ -2,8 +2,12 @@ export type Segment = { text: string; mark: boolean }
 
 /**
  * Splits text into marked and unmarked segments. Phrases are matched longest
- * first so an overlapping pair like "TerminaLLM LLC" and "TerminaLLM" marks the
- * longer one rather than orphaning its tail. Matching is exact and case
+ * first, which only matters for phrases that share a start index: for a pair
+ * like "TerminaLLM LLC" and "TerminaLLM" both starting at the same position,
+ * the longer one wins rather than the scan consuming "TerminaLLM" and
+ * orphaning " LLC". The scan itself is left-to-right and greedy, so for
+ * phrases overlapping at different start positions, whichever position is
+ * reached first wins regardless of phrase length. Matching is exact and case
  * sensitive: a phrase that no longer appears simply stops highlighting, which is
  * the correct failure for editable text.
  */

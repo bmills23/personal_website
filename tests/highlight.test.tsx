@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { splitHighlights } from '@/lib/highlight'
+import seed from '@/seed/content.json'
 
 describe('splitHighlights', () => {
   it('returns the whole string unmarked when there are no phrases', () => {
@@ -48,5 +49,24 @@ describe('splitHighlights', () => {
 
   it('ignores empty phrases rather than looping forever', () => {
     expect(splitHighlights('hello', [''])).toEqual([{ text: 'hello', mark: false }])
+  })
+
+  // The tests above only exercise synthetic strings. Nothing else ties the
+  // splitter to the real content document, so a future edit to hero.lede or
+  // hero.highlights (e.g. typing a plain space where the lede currently has
+  // a non-breaking space between "TerminaLLM" and "LLC") could silently stop
+  // a phrase from matching while every other test here stays green. This
+  // test runs the splitter over the actual seed document so that kind of
+  // drift fails loudly and names the phrase that broke.
+  it('marks all three configured phrases in the real seed lede', () => {
+    const result = splitHighlights(seed.hero.lede, seed.hero.highlights)
+    const marked = result.filter((s) => s.mark).map((s) => s.text)
+
+    expect(marked).toHaveLength(3)
+    // Sorted so this asserts the set of matched phrases, not the incidental
+    // order they happen to appear in the lede; a missing phrase still shows
+    // up by name in the diff.
+    expect([...marked].sort()).toEqual([...seed.hero.highlights].sort())
+    expect(result.map((s) => s.text).join('')).toBe(seed.hero.lede)
   })
 })
