@@ -13,15 +13,26 @@ export function Products({ products }: { products: Content['products'] }) {
       <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
         Products
       </WrittenHeading>
+      {/* No min-w-0 shrink guard here: it would land on TapedCard, one DOM
+          level below the actual grid item (Reveal's motion.div), where CSS
+          grid's automatic-minimum-size resolution does not see it, so it
+          would be inert. Verified experimentally: an unbreakable 60+ char
+          string overflows identically whether min-w-0 is placed here,
+          moved onto the real grid item, or omitted entirely. The layout's
+          actual protection against long unbroken strings is `body {
+          overflow-wrap: anywhere }` in app/globals.css. */}
       <div className="mt-8 grid grid-cols-1 gap-7 md:grid-cols-2">
         {products.map((product, i) => (
           <Reveal key={product.id} delay={i * 0.08} variant="card">
-            <TapedCard alt={i % 2 === 1} className="h-full min-w-0">
+            <TapedCard alt={i % 2 === 1} className="h-full">
               <div className="flex items-baseline justify-between gap-3">
                 <h3 className="font-mono text-lg font-semibold text-ink">
                   {product.name}
                 </h3>
-                <span className="shrink-0 text-[11px] uppercase tracking-[0.16em] text-pencil">
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 text-[11px] uppercase tracking-[0.16em] text-pencil"
+                >
                   {String(i + 1).padStart(2, '0')}
                 </span>
               </div>
