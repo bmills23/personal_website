@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:prod": "playwright test --config=playwright.prod.config.ts",
     "check:mobile": "node scripts/check-mobile.mjs"
   },
   "dependencies": {
