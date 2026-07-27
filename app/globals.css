@@ -87,3 +87,31 @@ body {
   outline: 2px solid var(--color-stamp);
   outline-offset: 2px;
 }
+
+/* Writing animation. Gated on .js-ready so that with no JavaScript nothing is
+   ever clipped and all text renders normally. Skipped entirely under reduced
+   motion, which is why the hidden state lives inside the media query. */
+@media (prefers-reduced-motion: no-preference) {
+  .js-ready [data-write] .write-ink {
+    clip-path: inset(0 100% 0 0);
+  }
+  .js-ready [data-write][data-written='true'] .write-ink {
+    animation: ink-wipe 0.7s cubic-bezier(0.33, 0, 0.2, 1) forwards;
+  }
+  .js-ready [data-write] .write-underline path {
+    stroke-dasharray: var(--underline-length, 300);
+    stroke-dashoffset: var(--underline-length, 300);
+  }
+  .js-ready [data-write][data-written='true'] .write-underline path {
+    animation: draw-underline 0.55s ease-out 0.45s forwards;
+  }
+}
+
+@keyframes ink-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes draw-underline {
+  to { stroke-dashoffset: 0; }
+}

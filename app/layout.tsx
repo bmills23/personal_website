@@ -42,6 +42,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${fraunces.variable} ${inter.variable} ${caveat.variable}`}
     >
+      <head>
+        {/* Static string, not user content. Runs synchronously before paint
+            so there is no flash of visible-then-hidden text: the writing
+            animation CSS only clips [data-write] content once this class is
+            present, so no JavaScript means no class means no clipping. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.documentElement.classList.add('js-ready')`,
+          }}
+        />
+      </head>
       <body>
         <a className="skip-link" href="#main">Skip to content</a>
         <PaperBackground />

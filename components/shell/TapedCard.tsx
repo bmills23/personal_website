@@ -14,8 +14,13 @@ export function TapedCard({
     >
       <span
         aria-hidden="true"
-        className="absolute -top-3 left-8 h-4 w-14 bg-highlighter/60"
-        style={{ transform: `rotate(var(${alt ? '--rotate' : '--rotate-alt'}))` }}
+        className="absolute -top-3 left-8 h-4 w-16"
+        style={{
+          transform: `rotate(var(${alt ? '--rotate' : '--rotate-alt'}))`,
+          background:
+            'linear-gradient(90deg, rgba(242,220,150,0.15) 0%, rgba(242,220,150,0.5) 12%, rgba(242,220,150,0.5) 88%, rgba(242,220,150,0.15) 100%)',
+          boxShadow: 'inset 0 0 0 1px rgba(203,215,221,0.35)',
+        }}
       />
       {children}
     </div>

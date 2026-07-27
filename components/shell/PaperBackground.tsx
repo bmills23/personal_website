@@ -9,7 +9,10 @@ export function PaperBackground() {
           backgroundSize: '18px 18px',
         }}
       />
-      <div className="absolute inset-y-0 left-10 w-px bg-margin-rule opacity-60 sm:left-16" />
+      {/* The margin rule belongs to the page's text column, not the window. */}
+      <div className="relative mx-auto h-full w-full max-w-4xl">
+        <div className="absolute inset-y-0 left-2.5 w-px bg-margin-rule opacity-70 sm:left-4" />
+      </div>
     </div>
   )
 }
