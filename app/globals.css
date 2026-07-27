@@ -11,6 +11,13 @@
   --color-stamp: #B4453C;
   --color-card: #FFFFFF;
   --color-card-border: #D9E0E6;
+  /* Dedicated to form control boundaries. --color-card-border (#D9E0E6) is
+     only 1.33:1 against --color-card and ~1.02:1 against --color-paper, far
+     under the 3:1 WCAG 1.4.11 floor for non-text UI, so it cannot double as
+     an input border. Reuses the --color-pencil hex (4.88:1 against card),
+     which is already proven AA-safe by tests/contrast.test.ts rather than a
+     newly invented value. */
+  --color-control-border: #68727F;
 
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
@@ -37,6 +44,16 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+html {
+  /* Nav is sticky top-0 and measures 69px tall at both the desktop and
+     390px-wide mobile breakpoints (measured against the real rendered page,
+     not assumed). Without this, every in-page anchor (nav links and the
+     skip link) scrolls its target flush to the viewport top, landing the
+     section's kicker directly under the opaque bar. A little above the
+     measured height leaves the kicker visible on arrival. */
+  scroll-padding-top: 84px;
 }
 
 body {
@@ -114,4 +131,27 @@ body {
 
 @keyframes draw-underline {
   to { stroke-dashoffset: 0; }
+}
+
+/* Reveal (components/shell/Reveal.tsx): About, product cards, and work
+   tracks fade/rise/scale into view on scroll. Same gating as the writing
+   animation above and for the same reason: no-JS and reduced-motion readers
+   must see this content with no hidden state ever server-rendered, so the
+   hidden style lives only inside .js-ready, only inside this media query. */
+@media (prefers-reduced-motion: no-preference) {
+  .js-ready [data-reveal='rise'] {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  .js-ready [data-reveal='card'] {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  .js-ready [data-reveal][data-revealed='true'] {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.5s cubic-bezier(0.33, 0, 0.2, 1) var(--reveal-delay, 0s),
+      transform 0.5s cubic-bezier(0.33, 0, 0.2, 1) var(--reveal-delay, 0s);
+  }
 }

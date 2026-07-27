@@ -113,11 +113,50 @@ test('sitemap.xml lists the homepage', async ({ request }) => {
 
 test('contact form submits', async ({ page }) => {
   await page.goto('/')
+
+  // Intercepts the network call rather than letting it reach the real
+  // /api/contact route. That route persists every submission to the live
+  // production `messages` table (app/api/contact/route.ts, lib/db.ts), and
+  // this suite runs twice per invocation (the desktop and mobile Playwright
+  // projects each run this test), so a real submission here wrote two live
+  // rows to production on every single test run, twice more on every retry.
+  // The ledger records two rounds of manual row cleanup as evidence
+  // (.superpowers/sdd/2026-07-27-personal-website-foundation/progress.md).
+  //
+  // Chosen over the other two options considered: a test-only server path
+  // would need its own auth/env split to keep it out of production, and
+  // self-cleanup (delete-after-insert) would still write to prod between
+  // insert and delete, plus require DATABASE_URL in the Playwright process,
+  // which today only the Next.js dev server loads. Mocking the network call
+  // needs neither, and the server side of the route (persist-before-send
+  // ordering, honeypot handling, rate limiting, malformed-JSON and
+  // oversized-body rejection, error paths) already has real coverage
+  // without touching a database, in tests/contact-route.test.ts, which
+  // mocks lib/db and lib/contact/mailer directly. What this e2e test alone
+  // can prove is the client half: filling the real form fields, clicking
+  // the real Send button, and the request/response contract the client
+  // code depends on, ending in the real success UI.
+  let requestBody: unknown = null
+  await page.route('**/api/contact', async (route) => {
+    requestBody = route.request().postDataJSON()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true }),
+    })
+  })
+
   await page.getByLabel('Name').fill('Playwright')
   await page.getByLabel('Email').fill('playwright@example.com')
   await page.getByLabel('Message').fill('Automated test message.')
   await page.getByRole('button', { name: 'Send' }).click()
+
   await expect(page.getByText('Got it. I will get back to you.')).toBeVisible()
+  expect(requestBody).toMatchObject({
+    name: 'Playwright',
+    email: 'playwright@example.com',
+    body: 'Automated test message.',
+  })
 })
 
 // --- Carried-forward test 1: no-JavaScript heading visibility -------------
@@ -136,6 +175,14 @@ test('contact form submits', async ({ page }) => {
 // boundingBox() reported the full unclipped size). This test therefore also
 // reads the actual computed `clip-path` in a real rendered page, which is
 // the property that would break if the CSS gating regressed.
+//
+// toBeVisible() alone has a second, separate hole: Playwright's visibility
+// predicate is a non-empty bounding box plus not `visibility:hidden`, and it
+// explicitly ignores `opacity`. An element at `opacity:0` reports as visible
+// under toBeVisible(). That is exactly the shape of the bug this test also
+// now guards against (see the Reveal-wrapped-content test below), so every
+// element checked here has its computed opacity read and asserted
+// separately, not inferred from toBeVisible().
 test('section headings are visible with JavaScript disabled', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false })
   const page = await context.newPage()
@@ -165,12 +212,70 @@ test('section headings are visible with JavaScript disabled', async ({ browser }
     // No fallback to `el` if the selector misses: if `.write-ink` stops
     // matching, that is itself a regression worth failing loudly on,
     // rather than silently checking the wrong element and passing.
-    const clipPath = await heading.evaluate((el) => {
+    const { clipPath, opacity } = await heading.evaluate((el) => {
       const ink = el.querySelector('.write-ink')
       if (!ink) throw new Error('".write-ink" not found inside heading; selector may have changed')
-      return getComputedStyle(ink).clipPath
+      const style = getComputedStyle(ink)
+      return { clipPath: style.clipPath, opacity: style.opacity }
     })
-    expect(clipPath).toBe('none')
+    expect(clipPath, `${name}: clip-path`).toBe('none')
+    expect(opacity, `${name}: opacity`).not.toBe('0')
+  }
+
+  await context.close()
+})
+
+// Carried-forward Must Fix from the final whole-branch review: Reveal
+// (components/shell/Reveal.tsx) wraps About, every product card, and both
+// work tracks. Its previous framer-motion implementation server-rendered
+// `style="opacity:0;transform:translateY(16px)"` on every one of those
+// wrappers, so with JavaScript disabled the page showed only the hero, bare
+// "Products"/"Work" headings with nothing under them, and the contact form.
+// The headings test above could not have caught this: WrittenHeading and
+// Reveal are different components, and the heading text itself sits inside
+// the Reveal wrapper but is not the thing that was hidden (the wrapper's
+// opacity was). This test reads computed opacity directly on the
+// [data-reveal] wrapper for one representative element in each affected
+// section, which is the exact property that regressed.
+test('Reveal-wrapped body content is visible with JavaScript disabled', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false })
+  const page = await context.newPage()
+  await page.goto('/')
+
+  const jsReady = await page.evaluate(() =>
+    document.documentElement.classList.contains('js-ready'),
+  )
+  expect(jsReady).toBe(false)
+
+  // Checked on the [data-reveal] wrapper itself, not on a descendant of it.
+  // opacity does not inherit as a computed style: getComputedStyle on a
+  // child of an opacity:0 ancestor still reports '1' for that child (the
+  // ancestor's opacity is a compositing effect on paint, not a cascaded
+  // property value), even though the child is visually invisible. An
+  // earlier draft of this test checked the About paragraph itself rather
+  // than its [data-reveal] ancestor and, when verified against the real
+  // regression below, silently passed anyway, exactly the kind of gap this
+  // whole test exists to close.
+  const targets = [
+    { label: 'About', locator: page.locator('#about [data-reveal]').first() },
+    { label: 'first product card', locator: page.locator('#products [data-reveal]').first() },
+    { label: 'first work track entry', locator: page.locator('#work [data-reveal]').first() },
+  ]
+
+  for (const { label, locator } of targets) {
+    await expect(locator, `${label}: should exist exactly once`).toHaveCount(1)
+
+    const opacity = await locator.evaluate((el) => getComputedStyle(el).opacity)
+    expect(opacity, `${label}: computed opacity`).not.toBe('0')
+
+    // Belt and suspenders alongside the opacity check: confirms the element
+    // actually paints at a nonzero size too, not merely that toBeVisible()
+    // would call it visible (which, per the note above the headings test,
+    // opacity alone cannot influence either way).
+    const box = await locator.boundingBox()
+    expect(box, `${label}: bounding box`).not.toBeNull()
+    expect(box!.width, `${label}: width`).toBeGreaterThan(0)
+    expect(box!.height, `${label}: height`).toBeGreaterThan(0)
   }
 
   await context.close()
