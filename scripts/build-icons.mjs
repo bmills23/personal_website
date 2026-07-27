@@ -17,7 +17,7 @@ for (const name of ICONS) {
     process.exit(1)
   }
   const raw = readFileSync(file, 'utf8')
-  writeFileSync(join(out, `${name}.svg`), roughen(raw))
+  writeFileSync(join(out, `${name}.svg`), roughen(raw, name))
   console.log(`icon  ${name}`)
 }
 
@@ -27,8 +27,13 @@ for (const name of ICONS) {
  * run the artwork through an SVG displacement filter for a slight jitter.
  * This keeps the build dependency-light and deterministic.
  */
-function roughen(svg) {
-  const filter = `<filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G"/></filter>`
+function roughen(svg, name) {
+  // Scoped per icon: components/Icon.tsx inlines each icon as its own
+  // sibling <svg> in the page DOM, so a shared literal id (e.g. "rough")
+  // would collide across icons on the same page and url(#..) would resolve
+  // to whichever filter happens to appear first in the document.
+  const filterId = `rough-${name}`
+  const filter = `<filter id="${filterId}"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G"/></filter>`
 
   let out = svg.replace(/fill="#[0-9a-fA-F]{3,6}"/g, 'fill="currentColor"')
 
@@ -41,7 +46,7 @@ function roughen(svg) {
   }
 
   return out
-    .replace(/<svg([^>]*)>/, `<svg$1><defs>${filter}</defs><g filter="url(#rough)">`)
+    .replace(/<svg([^>]*)>/, `<svg$1><defs>${filter}</defs><g filter="url(#${filterId})">`)
     .replace('</svg>', '</g></svg>')
     .replace(/<svg(?![^>]*fill=)([^>]*)>/, '<svg$1 fill="currentColor">')
 }
