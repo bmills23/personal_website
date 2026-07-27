@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "hero": {
+    "kicker": "Entry 001 · Denver, Colorado",
+    "name": "Bryan G. Mills",
+    "lede": "Geologist-in-Training for the State of Colorado. Founder of TerminaLLM LLC, where I build TerminaLLM and Parolejo.",
+    "stamp": "EST. 2026"
+  },
+  "about": {
+    "heading": "Two careers, one set of tools",
+    "paragraphs": [
+      "I spend my days on two problems that look unrelated and are not. One is what moves through the ground, and how fast, and whether anyone should be worried about it. The other is what should happen when a developer opens a terminal on their phone.",
+      "For the State of Colorado I work as a Geologist-in-Training: contaminant transport, trend analysis on volatile organic compounds, and the data tooling that turns field measurements into something a regulator can act on.",
+      "Through TerminaLLM LLC I design and ship software end to end. TerminaLLM puts a real terminal and a fleet of AI coding agents in your pocket. Parolejo teaches Esperanto entirely offline, with no ads, no accounts, and no tracking. Both are on the App Store and Google Play."
+    ],
+    "marginNote": "geology taught me to distrust a single sample"
+  },
+  "products": [
+    {
+      "id": "terminallm",
+      "name": "TerminaLLM",
+      "tagline": "Your command-line AI, in your pocket",
+      "body": "An SSH terminal for iOS and Android with AI coding agents built in. Full xterm-256color with an AI-optimized keyboard, six workspaces, and a Swarm mode that runs multiple agents at once in separate panes. SFTP browsing with in-place editing, port forwarding to your local dev server, and sessions that survive disconnects and network handoffs.",
+      "tags": ["iOS", "Android", "SSH", "AI agents"],
+      "links": [
+        { "label": "terminallm.app", "url": "https://terminallm.app" }
+      ]
+    },
+    {
+      "id": "parolejo",
+      "name": "Parolejo",
+      "tagline": "Saluton! Lernu Esperanton.",
+      "body": "A fully offline Esperanto course for iOS and Android. Twelve Zagreb-method lessons with narrator audio and adjustable playback, flashcard drills, and the 63,000-word ESPDIC dictionary bundled in. Works with no connection at all. Free, no ads, no accounts, no tracking.",
+      "tags": ["iOS", "Android", "Offline", "Esperanto"],
+      "links": [
+        { "label": "parolejo.app", "url": "https://parolejo.app" }
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "science",
+      "label": "Track 01 / Science",
+      "entries": [
+        {
+          "id": "colorado",
+          "org": "State of Colorado",
+          "role": "Geologist-in-Training",
+          "period": "Present",
+          "body": "Contaminant transport modeling, Mann-Kendall trend analysis on VOC monitoring data, and internal tooling that moves field data into something usable."
+        }
+      ]
+    },
+    {
+      "id": "software",
+      "label": "Track 02 / Software",
+      "entries": [
+        {
+          "id": "terminallm-llc",
+          "org": "TerminaLLM LLC",
+          "role": "Owner and lead developer",
+          "period": "Present",
+          "body": "Founded 2026. Design, build, ship, and support two mobile products across iOS and Android, plus everything behind them."
+        }
+      ]
+    }
+  ],
+  "contact": {
+    "heading": "Get in touch",
+    "blurb": "Open to interesting problems, especially where earth science and software meet."
+  },
+  "footer": {
+    "note": "Built in Colorado.",
+    "links": [
+      { "label": "GitHub", "url": "https://github.com/bmills23/" },
+      { "label": "LinkedIn", "url": "https://www.linkedin.com/in/bryangmills/" }
+    ]
+  }
+}
