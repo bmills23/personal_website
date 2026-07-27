@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hashIp } from '@/lib/contact/rateLimit'
+import { hashIp, isRateLimited } from '@/lib/contact/rateLimit'
 import { contactInputSchema } from '@/lib/contact/schema'
 
 describe('hashIp', () => {
@@ -32,4 +32,23 @@ describe('contactInputSchema', () => {
   it('rejects a filled honeypot', () => {
     expect(contactInputSchema.safeParse({ ...valid, website: 'http://spam' }).success).toBe(false)
   })
+})
+
+describe('isRateLimited fails open on a database error', () => {
+  // Same technique as the "falls back to the seed" test in
+  // tests/read.test.ts: an unreachable local address fails fast
+  // (connection refused) without depending on the real project database or
+  // any external network. This directly exercises the fail-open behavior
+  // documented in lib/contact/rateLimit.ts: an outage of the rate-limit
+  // check itself must resolve to "not rate limited" rather than throwing
+  // or blocking a legitimate sender.
+  it('resolves to false, rather than throwing or blocking, when the database is unreachable', async () => {
+    const original = process.env.DATABASE_URL
+    process.env.DATABASE_URL = 'postgresql://nobody:nothing@127.0.0.1:1/none'
+    try {
+      await expect(isRateLimited('some-hash')).resolves.toBe(false)
+    } finally {
+      process.env.DATABASE_URL = original
+    }
+  }, 20000)
 })

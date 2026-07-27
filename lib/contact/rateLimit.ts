@@ -18,8 +18,12 @@ export async function isRateLimited(ipHash: string): Promise<boolean> {
         and created_at > now() - make_interval(mins => ${WINDOW_MINUTES})`
     return rows[0].n >= MAX_PER_WINDOW
   } catch {
-    // A database failure must not silently disable the limiter, but it also
-    // must not block a legitimate sender. Fail closed on the limiter only.
+    // Fails open: a database error here returns "not rate limited" rather
+    // than throwing or reporting limited. The alternative (failing closed)
+    // would let an unrelated database blip lock out a legitimate sender,
+    // which is worse than the rate limiter being briefly ineffective during
+    // that same outage. The insert in the route handler below has its own
+    // try/catch and does not depend on this decision either way.
     return false
   }
 }

@@ -58,8 +58,8 @@ describe('WrittenHeading', () => {
   // just against a hypothetical.
   it('carries no inline clip-path, so hiding is CSS-owned rather than baked into the render', () => {
     const { container } = render(<WrittenHeading>Work</WrittenHeading>)
-    const heading = container.querySelector('h1, h2, h3')
-    const ink = container.querySelector('.write-ink')
+    const heading = container.querySelector<HTMLElement>('h1, h2, h3')
+    const ink = container.querySelector<HTMLElement>('.write-ink')
     expect(heading?.style.clipPath).toBe('')
     expect(ink?.style.clipPath).toBe('')
   })
