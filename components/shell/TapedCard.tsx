@@ -17,9 +17,12 @@ export function TapedCard({
         className="absolute -top-3 left-8 h-4 w-16"
         style={{
           transform: `rotate(var(${alt ? '--rotate' : '--rotate-alt'}))`,
+          // Theme tokens via color-mix rather than literal rgba, so the tape
+          // tracks --color-highlighter / --color-card-border if those change.
           background:
-            'linear-gradient(90deg, rgba(242,220,150,0.15) 0%, rgba(242,220,150,0.5) 12%, rgba(242,220,150,0.5) 88%, rgba(242,220,150,0.15) 100%)',
-          boxShadow: 'inset 0 0 0 1px rgba(203,215,221,0.35)',
+            'linear-gradient(90deg, color-mix(in srgb, var(--color-highlighter) 15%, transparent) 0%, color-mix(in srgb, var(--color-highlighter) 50%, transparent) 12%, color-mix(in srgb, var(--color-highlighter) 50%, transparent) 88%, color-mix(in srgb, var(--color-highlighter) 15%, transparent) 100%)',
+          boxShadow:
+            'inset 0 0 0 1px color-mix(in srgb, var(--color-card-border) 35%, transparent)',
         }}
       />
       {children}
