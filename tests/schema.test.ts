@@ -25,4 +25,22 @@ describe('contentSchema', () => {
     bad.products[0].links[0].url = 'not-a-url'
     expect(contentSchema.safeParse(bad).success).toBe(false)
   })
+
+  it('rejects a store link using the javascript: scheme', () => {
+    const bad = structuredClone(seed) as any
+    bad.products[0].links[0].url = 'javascript:alert(1)'
+    expect(contentSchema.safeParse(bad).success).toBe(false)
+  })
+
+  it('rejects a store link using the data: scheme', () => {
+    const bad = structuredClone(seed) as any
+    bad.products[0].links[0].url = 'data:text/html,x'
+    expect(contentSchema.safeParse(bad).success).toBe(false)
+  })
+
+  it('accepts a normal https store link', () => {
+    const good = structuredClone(seed) as any
+    good.products[0].links[0].url = 'https://example.com'
+    expect(contentSchema.safeParse(good).success).toBe(true)
+  })
 })
