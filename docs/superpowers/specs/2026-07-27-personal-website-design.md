@@ -1,17 +1,23 @@
 # Personal Website Redesign: Design Spec
 
-**Date:** 2026-07-27
+**Date:** 2026-07-27 (career facts corrected 2026-07-28)
 **Owner:** Bryan G. Mills
 **Repo:** `~/repos/personal_website` (github.com/bmills23/personal_website)
 **Status:** Approved, pending implementation plan
+
+> **Correction (2026-07-28):** Bryan is an Environmental Protection Specialist for the State of
+> Colorado, an air quality planner in the Ozone SIP Unit. He is not a geologist. Earlier drafts
+> (and Plan 1's embedded seed content) said "Geologist-in-Training"; that framing is wrong and
+> must never be reintroduced. The two-parallel-careers design bet is unchanged.
 
 ---
 
 ## 1. Purpose
 
 A personal brand and portfolio site for Bryan G. Mills, positioning him as a person with two
-parallel careers: Geologist-in-Training for the State of Colorado, and owner and lead developer
-of TerminaLLM LLC, which ships TerminaLLM and Parolejo.
+parallel careers: Environmental Protection Specialist for the State of Colorado (an air quality
+planner in the Ozone SIP Unit), and owner and lead developer of TerminaLLM LLC, which ships
+TerminaLLM and Parolejo.
 
 The audience is recruiters, collaborators, and peers. TerminaLLM and Parolejo are the headline
 work rather than the subject of the site; this is not a product marketing page.
@@ -45,8 +51,9 @@ ink, key phrases struck through with highlighter, cards taped onto the page at s
 a rotated rubber stamp.
 
 Chosen from four candidate directions (terminal, geological strata, Swiss editorial, field
-notebook). The notebook earns the geology connection through fieldwork while staying personal
-rather than corporate, and no other developer portfolio looks like it.
+notebook). The notebook earns the environmental-science connection through monitoring and
+fieldwork while staying personal rather than corporate, and no other developer portfolio looks
+like it.
 
 Bryan explicitly chose the full-personality calibration over a more restrained one. The
 implementation therefore keeps handwriting, tape, stamp, and rotation, and solves their fragility

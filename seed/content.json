@@ -3,18 +3,18 @@
   "hero": {
     "kicker": "Entry 001 · Denver, Colorado",
     "name": "Bryan G. Mills",
-    "lede": "Geologist-in-Training for the State of Colorado. Founder of TerminaLLM LLC, where I build TerminaLLM and Parolejo.",
+    "lede": "Environmental Protection Specialist for the State of Colorado. Founder of TerminaLLM LLC, where I build TerminaLLM and Parolejo.",
     "stamp": "EST. 2026",
     "highlights": ["TerminaLLM LLC", "TerminaLLM", "Parolejo"]
   },
   "about": {
     "heading": "Two careers, one set of tools",
     "paragraphs": [
-      "I spend my days on two problems that look unrelated and are not. One is what moves through the ground, and how fast, and whether anyone should be worried about it. The other is what should happen when a developer opens a terminal on their phone.",
-      "For the State of Colorado I work as a Geologist-in-Training: contaminant transport, trend analysis on volatile organic compounds, and the data tooling that turns field measurements into something a regulator can act on.",
+      "I spend my days on two problems that look unrelated and are not. One is what is in the air over Colorado, where it comes from, and what it will take to bring it down. The other is what should happen when a developer opens a terminal on their phone.",
+      "For the State of Colorado I work as an Environmental Protection Specialist, an air quality planner in the Ozone SIP Unit: State Implementation Plan work under the federal ozone standard, and the analysis that turns monitoring data into strategy the state can act on.",
       "Through TerminaLLM LLC I design and ship software end to end. TerminaLLM puts a real terminal and a fleet of AI coding agents in your pocket. Parolejo teaches Esperanto entirely offline, with no ads, no accounts, and no tracking. Both are on the App Store and Google Play."
     ],
-    "marginNote": "geology taught me to distrust a single sample"
+    "marginNote": "air data taught me to distrust a single monitor"
   },
   "products": [
     {
@@ -46,9 +46,9 @@
         {
           "id": "colorado",
           "org": "State of Colorado",
-          "role": "Geologist-in-Training",
+          "role": "Environmental Protection Specialist",
           "period": "Present",
-          "body": "Contaminant transport modeling, Mann-Kendall trend analysis on VOC monitoring data, and internal tooling that moves field data into something usable."
+          "body": "Air quality planning in the Ozone SIP Unit: State Implementation Plan development under the federal ozone standard, and the analysis behind it."
         }
       ]
     },
@@ -68,7 +68,7 @@
   ],
   "contact": {
     "heading": "Get in touch",
-    "blurb": "Open to interesting problems, especially where earth science and software meet."
+    "blurb": "Open to interesting problems, especially where environmental science and software meet."
   },
   "footer": {
     "note": "Built in Colorado.",

@@ -24,12 +24,12 @@ const caveat = Caveat({
 export const metadata: Metadata = {
   title: 'Bryan G. Mills',
   description:
-    'Geologist-in-Training for the State of Colorado and founder of TerminaLLM LLC, building TerminaLLM and Parolejo.',
+    'Environmental Protection Specialist for the State of Colorado and founder of TerminaLLM LLC, building TerminaLLM and Parolejo.',
   metadataBase: new URL('https://bryangmills.com'),
   openGraph: {
     title: 'Bryan G. Mills',
     description:
-      'Geologist-in-Training for the State of Colorado and founder of TerminaLLM LLC.',
+      'Environmental Protection Specialist for the State of Colorado and founder of TerminaLLM LLC.',
     url: 'https://bryangmills.com',
     siteName: 'Bryan G. Mills',
     type: 'website',

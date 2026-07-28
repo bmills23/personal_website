@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Correction (2026-07-28, after execution):** the seed copy embedded in this plan describes
+> Bryan as "Geologist-in-Training" doing contaminant-transport work. That was wrong. Bryan is an
+> Environmental Protection Specialist for the State of Colorado, an air quality planner in the
+> Ozone SIP Unit. The shipped `seed/content.json`, `app/layout.tsx`, and the database row were
+> corrected on 2026-07-28. Never copy career copy out of this historical document.
+
 **Goal:** Replace the existing Vite SPA with a server-rendered Next.js site in a field-notebook aesthetic, reading its content from Neon Postgres with a seed-file fallback, and deploy it to `bryangmills.com`.
 
 **Architecture:** Next.js 16 App Router on Vercel. The page is a server component that reads a single JSONB content document from Neon through a `'use cache'`-tagged function, falling back to a checked-in seed file when the database is unreachable. The visual system is Tailwind v4 CSS-first tokens over a paper-and-graph-grid shell. Content editing (auth, save API, inline `contentEditable`) is deliberately out of scope and lands in Plan 2; this plan's content changes by editing `seed/content.json`.
