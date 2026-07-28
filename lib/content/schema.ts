@@ -25,7 +25,7 @@ const linkSchema = z.object({
   url: z.url({ protocol: /^https?$/ }),
 })
 
-const productSchema = z.object({
+export const productSchema = z.object({
   id: z.string().min(1).max(40),
   name: z.string().min(1).max(60),
   tagline: z.string().min(1).max(120),
@@ -34,7 +34,7 @@ const productSchema = z.object({
   links: z.array(linkSchema).max(ARRAY_LIMITS['products.links']),
 })
 
-const trackEntrySchema = z.object({
+export const trackEntrySchema = z.object({
   id: z.string().min(1).max(40),
   org: z.string().min(1).max(80),
   role: z.string().min(1).max(80),
