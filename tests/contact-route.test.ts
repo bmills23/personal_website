@@ -102,6 +102,40 @@ describe('POST /api/contact, mocked db and mailer', () => {
     expect(calls).toEqual([])
   })
 
+  // Security-audit Fix 3: a cross-site <form enctype="text/plain"> can post
+  // here using a visitor's own browser/IP without a CORS preflight, since
+  // text/plain is a "simple" content type. Rejecting anything but
+  // application/json closes that drive-by, which could otherwise burn a
+  // real visitor's rate-limit quota on a submission they never made.
+  it('rejects a non-JSON content-type with the generic 400, even with an otherwise-valid JSON body', async () => {
+    const res = await POST(makeRequest(valid, { 'content-type': 'text/plain' }))
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'Invalid submission.' })
+    expect(calls).toEqual([])
+  })
+
+  it('rejects a missing content-type the same way', async () => {
+    const req = new Request('http://localhost/api/contact', {
+      method: 'POST',
+      body: JSON.stringify(valid),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'Invalid submission.' })
+  })
+
+  it('accepts application/json with a charset parameter, matching a real browser fetch', async () => {
+    const res = await POST(makeRequest(valid, { 'content-type': 'application/json; charset=utf-8' }))
+    expect(res.status).toBe(200)
+  })
+
+  it('still checks the rate limiter before the content-type gate: a rate-limited text/plain request still returns 429, not 400', async () => {
+    vi.mocked(isRateLimited).mockResolvedValueOnce(true)
+    const res = await POST(makeRequest(valid, { 'content-type': 'text/plain' }))
+    expect(res.status).toBe(429)
+    expect(calls).toEqual([])
+  })
+
   it('checks the rate limiter before validating the payload: a rate-limited honeypot request still returns 429, not 400', async () => {
     vi.mocked(isRateLimited).mockResolvedValueOnce(true)
     const res = await POST(

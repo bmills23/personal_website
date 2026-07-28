@@ -91,6 +91,48 @@ editor does not use.
   older Firefox versions silently fail to make the field editable. Chrome
   and Safari support it at any recent version.
 
+## If you lose control of your session
+
+If you believe an editor session has been compromised (a stolen laptop or
+browser profile, a leaked cookie, anything where someone else might be able
+to act as the signed-in owner), in order of what to do:
+
+1. **Rotate `AUTH_SECRET` in Vercel** (project `personal_website` ->
+   Settings -> Environment Variables). Auth.js signs every session with
+   this value, so changing it invalidates every existing session
+   immediately, everywhere, with no way for an already-issued cookie to
+   keep working. Redeploy (or wait for Vercel to pick up the new value) for
+   it to take effect. Side effect: `lib/contact/rateLimit.ts`'s `hashIp`
+   falls back to `AUTH_SECRET` as its salt whenever `CONTACT_IP_SALT` is
+   not set, so rotating `AUTH_SECRET` also changes every `ip_hash` going
+   forward, which is indistinguishable from every contact-form sender's
+   rate-limit bucket resetting at once. Set `CONTACT_IP_SALT` (see
+   `.env.example`) ahead of time if you want to rotate `AUTH_SECRET`
+   without that side effect.
+2. **Clear or change `ADMIN_GITHUB_LOGIN`** (same Vercel settings page) to
+   disable editing entirely: `authConfigured()` (`lib/auth/index.ts`)
+   requires it, so an empty or wrong value makes `/login` read "Editor not
+   configured" and every save attempt fail, for anyone, until it is set
+   back correctly. Useful as an immediate kill switch if step 1 alone
+   feels insufficient or you cannot get to Vercel's OAuth settings quickly.
+3. **Revoke the OAuth app's grant in GitHub**: GitHub Settings ->
+   Applications -> Authorized OAuth Apps, find this site's app, and revoke
+   access. This is the step that actually matters if a whole browser
+   profile was stolen (not just a session cookie): steps 1 and 2 stop the
+   *site* from trusting anything, but the attacker's browser may still be
+   able to complete a fresh GitHub OAuth sign-in on their own if they also
+   have your GitHub session; revoking the grant forces a real GitHub
+   re-authentication (and, if you suspect your GitHub account itself is
+   compromised, handle that separately - this only revokes this one app's
+   access).
+
+Content damage (not the session itself) is separately recoverable: every
+save writes to the `content_history` table before it is applied, and the
+toolbar's **Revert last save** button steps back through it one save at a
+time (see "Day to day" above). A rotated `AUTH_SECRET`/cleared
+`ADMIN_GITHUB_LOGIN` does not touch this table, so reverting unwanted
+changes can happen either before or after locking the session down.
+
 ## Graceful degradation
 
 The public site never depends on the editor. Verified 2026-07-28 by moving

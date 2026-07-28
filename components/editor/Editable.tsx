@@ -112,15 +112,44 @@ export async function commitField({
  * renders this for its edit-mode output, so paste/drop/keyboard/blur behave
  * identically everywhere.
  *
- * Because a fresh instance of this component mounts each time a field
- * enters edit mode (its callers only render it inside the `isEditing`
- * branch), `text` only ever needs to be captured once, at that mount: both
- * refs below intentionally ignore `text` on every render after the first
- * (`useRef`'s initializer argument is a one-time value), which is what makes
- * the element "uncontrolled after that" per the brief. The DOM owns the
- * draft; React is never asked to reconcile a children diff against it again
- * for the life of this edit session, so a save elsewhere that refreshes
- * `text` upstream cannot clobber an in-progress keystroke here.
+ * A fresh instance of this component mounts both when a field first enters
+ * edit mode (its callers only render it inside the `isEditing` branch) AND
+ * whenever the underlying document value actually changes thereafter: every
+ * caller passes `key={text}` (or the equivalent for its own value) on this
+ * element, so a `text` prop that differs from the previous render forces
+ * React to unmount the old instance and mount a new one rather than
+ * updating the existing one in place (see each caller's own comment: the
+ * `Editable`/`EditableInline`/`EditableStamp` functions below,
+ * HeadingEditable.tsx, EditableMarginNote.tsx, EditableLink.tsx). That is
+ * what lets `text` only ever be captured once per mount: both refs below
+ * intentionally ignore `text` on every render after the first (`useRef`'s
+ * initializer argument is a one-time value), which is what makes the
+ * element "uncontrolled after that" per the brief, while still re-syncing
+ * to a value that changed out from under it (a router.refresh() landing
+ * after some OTHER field's commit, e.g. because a sibling array item was
+ * removed/reordered) instead of silently going stale.
+ *
+ * Focus safety, stated precisely. Typing is uncontrolled and never touches
+ * the `text` prop, and a field's own commit path (Enter/blur/Escape) always
+ * removes focus before the resulting refresh can land, so ordinary editing
+ * never remounts under the caret.
+ *
+ * One residual case is NOT covered, and narrowing it further needs stable
+ * per-item ids the schema does not have. Arrays of bare values (a product's
+ * tags, footer/product links, about paragraphs) have no identity beyond
+ * their content, so `contentKeys` disambiguates literal duplicates by
+ * occurrence order. If an array holds two items with IDENTICAL text and an
+ * EARLIER duplicate is removed while a LATER one is mid-edit (needs a
+ * second tab, or a browser that does not blur a contenteditable when a
+ * button elsewhere is clicked), the survivor's occurrence index shifts, its
+ * key changes, and the subtree remounts: the uncommitted keystrokes are
+ * discarded and the field falls back to its last saved value. Nothing is
+ * written to the wrong path and nothing is saved incorrectly, the in-flight
+ * draft is simply lost. This is strictly better than the index-keyed
+ * behavior it replaced, where ANY earlier removal unmounted a later focused
+ * field whether or not the values were duplicates. Verified empirically:
+ * with unique values the same scenario preserves the node, the focus, and
+ * the draft.
  */
 export function EditableField({
   path,
@@ -246,8 +275,29 @@ export function Editable({
     return <Tag className={className}>{children ?? text}</Tag>
   }
 
+  // `key={text}`: EditableField freezes `text` into a ref at mount and never
+  // re-syncs it (see EditableField's own doc comment), so a document value
+  // that changes out from under an already-mounted instance (a
+  // router.refresh() delivering fresh server data, e.g. after a sibling
+  // array item was removed/reordered) would otherwise leave the DOM showing
+  // a stale, possibly-deleted value while `path` now points at whatever
+  // shifted into this slot - a silent wrong-slot write with no error. Keying
+  // on the incoming text forces React to remount (fresh mountedTextRef
+  // snapshot) exactly when the underlying value actually changes. Safe to
+  // remount even mid-page-interaction because it can never fire on a
+  // FOCUSED field: typing is uncontrolled (never touches this `text` prop),
+  // and every commit path (Enter, blur, Escape, toolbar clicks) removes
+  // focus before its own router.refresh() lands, so by the time any refresh
+  // re-renders this tree, whichever field it affects has already lost focus.
   return (
-    <EditableField path={path} text={text} as={as} className={className} placeholder={placeholder} />
+    <EditableField
+      key={text}
+      path={path}
+      text={text}
+      as={as}
+      className={className}
+      placeholder={placeholder}
+    />
   )
 }
 
@@ -280,7 +330,9 @@ export function EditableInline({
     return text ? text : null
   }
 
-  return <EditableField path={path} text={text} as={as} className={className} />
+  // See the matching comment on `Editable` above: keying on `text` is what
+  // makes an already-mounted instance re-sync to a changed document value.
+  return <EditableField key={text} path={path} text={text} as={as} className={className} />
 }
 
 /**
@@ -301,7 +353,8 @@ export function EditableStamp({ path, text }: { path: string; text: string }) {
 
   return (
     <Stamp ariaHidden={false}>
-      <EditableField path={path} text={text} as="span" />
+      {/* See the matching comment on `Editable` above. */}
+      <EditableField key={text} path={path} text={text} as="span" />
     </Stamp>
   )
 }
