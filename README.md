@@ -29,4 +29,6 @@ Environment lives in `.env.local`, which is gitignored. See the design spec at
 
 Content is a single JSONB document in the `content` table. `seed/content.json`
 is both the starting document and the runtime fallback when the database is
-unreachable. Inline editing lands in Plan 2.
+unreachable. The owner can edit the live page in place after signing in at
+`/login`; see `docs/EDITOR.md` for day-to-day usage and the one-time
+production setup.

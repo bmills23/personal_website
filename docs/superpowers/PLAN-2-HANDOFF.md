@@ -1,5 +1,21 @@
 # Plan 2 Handoff: the browser editor
 
+> **Status update, 2026-07-28: Plan 2 has shipped.** The browser editor
+> described below as future work is built and tested on branch
+> `plan-2-editor`; merge to `main` follows the final whole-branch review.
+> For day-to-day usage and the one-time production OAuth checklist, see
+> `docs/EDITOR.md`.
+> For the implementation record, see
+> `docs/superpowers/plans/2026-07-28-personal-website-editor.md`.
+>
+> One instruction below is stale and was corrected during implementation:
+> "The save API" section (under "What Plan 2 has to build") describes calling
+> `updateTag('content')` from a route handler. That is not possible: Next 16
+> throws when `updateTag` is called from a Route Handler (verified against
+> the installed `next@16.2.12` source). The shipped design uses Server
+> Actions instead, which also gives read-your-writes and built-in origin
+> checks. Everything else below reflects what was actually built.
+
 **Written:** 2026-07-27, after Plan 1 shipped to production.
 
 Plan 1 built the public site. Plan 2 builds the thing originally asked for: log in with
@@ -57,6 +73,10 @@ These were built and reviewed during Plan 1 on purpose, so the editor starts on 
    - The `signIn` callback must reject any GitHub login that is not `ADMIN_GITHUB_LOGIN`.
    - Re-check the session in **every** write route, not only in middleware.
    - **Next.js 16 renamed `middleware.ts` to `proxy.ts`.** Auth.js docs show `export { auth as proxy }`.
+     [Corrected during implementation: no `proxy.ts` was built. Session
+     checks live in each Server Action instead, per this plan's decision
+     table ("No `proxy.ts` middleware": keeping auth off the public request
+     path removes a failure mode and the rename hazard).]
 2. **A production GitHub OAuth app.** A GitHub OAuth app accepts exactly one callback URL, so the
    existing app (localhost, for development) cannot serve production. Create a second one with
    callback `https://bryangmills.com/api/auth/callback/github` and add `AUTH_GITHUB_ID` /

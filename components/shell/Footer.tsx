@@ -1,3 +1,6 @@
+import { Editable } from '@/components/editor/Editable'
+import { EditableLink } from '@/components/editor/EditableLink'
+
 export function Footer({
   note,
   links,
@@ -8,18 +11,18 @@ export function Footer({
   return (
     <footer className="mt-20 border-t border-card-border">
       <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-5 py-8 text-sm text-pencil sm:px-8">
-        <p>{note}</p>
+        <Editable path="footer.note" text={note} as="p" />
         <ul className="flex gap-4">
-          {links.map((link) => (
-            <li key={link.url}>
-              <a
-                href={link.url}
+          {links.map((link, i) => (
+            <li key={i}>
+              <EditableLink
+                labelPath={`footer.links.${i}.label`}
+                urlPath={`footer.links.${i}.url`}
+                label={link.label}
+                url={link.url}
                 className="inline-flex min-h-11 items-center hover:text-ink"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {link.label}
-              </a>
+                classNameFirst
+              />
             </li>
           ))}
         </ul>

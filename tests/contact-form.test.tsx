@@ -26,12 +26,40 @@
 // client-side-only assertion would silently test nothing.
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Contact } from '@/components/sections/Contact'
 import { ContactForm } from '@/components/ContactForm'
 
+// Contact.tsx now renders editable fields (Task 5), which need an
+// EditProvider ancestor (useEditor() throws without one) and pull in
+// @/app/actions/content -> @/lib/auth, whose top-level NextAuth(...) call
+// is real network/module-resolution weight this file has no business
+// paying for a server-HTML fixture test. Mocked the same way
+// tests/edit-provider.test.tsx and tests/editable.test.tsx already do.
+// renderToStaticMarkup never runs effects, so EditProvider's hint-check
+// effect never fires either way: session stays 'unknown' and every
+// Editable/HeadingEditable below renders its plain view-mode markup, which
+// is exactly what these tests need.
+vi.mock('@/app/actions/content', () => ({
+  getEditorState: vi.fn(),
+  saveField: vi.fn(),
+  revertLastSave: vi.fn(),
+}))
+vi.mock('@/app/actions/auth', () => ({ signOutAction: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
+
+import { EditProvider } from '@/components/editor/EditProvider'
+import { Contact } from '@/components/sections/Contact'
+
 const sampleContact = { heading: 'Get in touch', blurb: 'Say hello.' }
+
+function renderContact(contact: typeof sampleContact) {
+  return renderToStaticMarkup(
+    <EditProvider>
+      <Contact contact={contact} />
+    </EditProvider>,
+  )
+}
 
 describe('ContactForm noscript fallback (server-rendered HTML)', () => {
   it('fails closed: with no fallbackEmail, renders no "@" address and no mailto link', () => {
@@ -82,7 +110,7 @@ describe('Contact section reads PUBLIC_CONTACT_EMAIL, never CONTACT_TO_EMAIL, fo
     withEnv(
       { PUBLIC_CONTACT_EMAIL: undefined, CONTACT_TO_EMAIL: 'owner-private@example.com' },
       () => {
-        const html = renderToStaticMarkup(<Contact contact={sampleContact} />)
+        const html = renderContact(sampleContact)
         expect(html).not.toContain('@')
         expect(html).not.toContain('owner-private@example.com')
       },
@@ -96,7 +124,7 @@ describe('Contact section reads PUBLIC_CONTACT_EMAIL, never CONTACT_TO_EMAIL, fo
         CONTACT_TO_EMAIL: 'owner-private@example.com',
       },
       () => {
-        const html = renderToStaticMarkup(<Contact contact={sampleContact} />)
+        const html = renderContact(sampleContact)
         expect(html).toContain('public-hello@example.com')
         expect(html).not.toContain('owner-private@example.com')
       },

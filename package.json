@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:editor": "node --env-file=.env.local node_modules/.bin/playwright test e2e/editor.spec.ts",
     "e2e:prod": "playwright test --config=playwright.prod.config.ts",
     "e2e:all": "npm run e2e && npm run e2e:prod",
     "check:mobile": "node scripts/check-mobile.mjs"
@@ -19,6 +20,7 @@
   "dependencies": {
     "@neondatabase/serverless": "1.1.0",
     "next": "16.2.12",
+    "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "resend": "6.18.0",

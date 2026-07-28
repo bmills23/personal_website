@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Fraunces, Inter, Caveat } from 'next/font/google'
 import { PaperBackground } from '@/components/shell/PaperBackground'
 import { Nav } from '@/components/shell/Nav'
+import { EditProvider } from '@/components/editor/EditProvider'
 import './globals.css'
 
 const fraunces = Fraunces({
@@ -65,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a className="skip-link" href="#main">Skip to content</a>
         <PaperBackground />
         <Nav />
-        {children}
+        <EditProvider>{children}</EditProvider>
       </body>
     </html>
   )

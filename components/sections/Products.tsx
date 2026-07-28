@@ -3,6 +3,9 @@ import { TapedCard } from '@/components/shell/TapedCard'
 import { Reveal } from '@/components/shell/Reveal'
 import { WrittenHeading } from '@/components/shell/WrittenHeading'
 import { Icon } from '@/components/Icon'
+import { Editable } from '@/components/editor/Editable'
+import { EditableLink } from '@/components/editor/EditableLink'
+import { ArrayControls, ArrayAddButton } from '@/components/editor/ArrayControls'
 
 export function Products({
   products,
@@ -13,9 +16,12 @@ export function Products({
 }) {
   return (
     <section id="products" className="border-t border-card-border py-14">
-      <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
-        {kicker}
-      </p>
+      <Editable
+        path="sections.products.kicker"
+        text={kicker}
+        as="p"
+        className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp"
+      />
       <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
         Products
       </WrittenHeading>
@@ -31,10 +37,14 @@ export function Products({
         {products.map((product, i) => (
           <Reveal key={product.id} delay={i * 0.08} variant="card">
             <TapedCard alt={i % 2 === 1} className="h-full">
+              <ArrayControls kind="product" items={products} index={i} arrayKey="products" />
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="font-mono text-lg font-semibold text-ink">
-                  {product.name}
-                </h3>
+                <Editable
+                  path={`products.${i}.name`}
+                  text={product.name}
+                  as="h3"
+                  className="font-mono text-lg font-semibold text-ink"
+                />
                 <span
                   aria-hidden="true"
                   className="shrink-0 text-[11px] uppercase tracking-[0.16em] text-pencil"
@@ -42,40 +52,70 @@ export function Products({
                   {String(i + 1).padStart(2, '0')}
                 </span>
               </div>
-              <p className="mt-1 font-display text-[15px] text-graphite">
-                {product.tagline}
-              </p>
-              <p className="mt-3 text-[15px] leading-relaxed text-graphite">
-                {product.body}
-              </p>
+              <Editable
+                path={`products.${i}.tagline`}
+                text={product.tagline}
+                as="p"
+                className="mt-1 font-display text-[15px] text-graphite"
+              />
+              <Editable
+                path={`products.${i}.body`}
+                text={product.body}
+                as="p"
+                className="mt-3 text-[15px] leading-relaxed text-graphite"
+              />
               <ul className="mt-4 flex flex-wrap gap-2">
-                {product.tags.map((tag) => (
-                  <li
-                    key={tag}
+                {product.tags.map((tag, j) => (
+                  <Editable
+                    key={j}
+                    path={`products.${i}.tags.${j}`}
+                    text={tag}
+                    as="li"
                     className="rounded-sm border border-card-border px-2 py-1 text-[11px] text-pencil"
-                  >
-                    {tag}
-                  </li>
+                  />
                 ))}
               </ul>
+              {/* ArrayControls renders a <span> in edit mode (null in view
+                  mode). A <span> is not a valid direct child of the <ul>
+                  above, so its per-tag remove control is rendered as its
+                  own row here, outside the list, rather than wrapped in an
+                  <li> inside it - wrapping would still leave an empty <li>
+                  in the DOM for a visitor even though ArrayControls itself
+                  renders null, since the wrapper element is not
+                  conditional on edit mode. Rendering entirely outside the
+                  <ul> keeps visitor markup byte-identical to before this
+                  fix: every array entry here still resolves to null in
+                  view mode, so React emits nothing at all. See the
+                  "visitor DOM purity" suite in e2e/editor.spec.ts. */}
+              {product.tags.map((_tag, j) => (
+                <ArrayControls
+                  key={j}
+                  kind="tag"
+                  items={products}
+                  index={j}
+                  arrayKey={`products.${i}.tags`}
+                />
+              ))}
+              <ArrayAddButton kind="tag" items={products} arrayKey={`products.${i}.tags`} />
               <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-card-border pt-3">
-                {product.links.map((link) => (
-                  <a
-                    key={link.url}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {product.links.map((link, j) => (
+                  <EditableLink
+                    key={j}
+                    labelPath={`products.${i}.links.${j}.label`}
+                    urlPath={`products.${i}.links.${j}.url`}
+                    label={link.label}
+                    url={link.url}
                     className="inline-flex min-h-11 items-center gap-1.5 text-[13px] text-ink hover:text-stamp"
                   >
-                    {link.label}
                     <Icon name="arrow-up-right" size={14} />
-                  </a>
+                  </EditableLink>
                 ))}
               </div>
             </TapedCard>
           </Reveal>
         ))}
       </div>
+      <ArrayAddButton kind="product" items={products} arrayKey="products" />
     </section>
   )
 }
