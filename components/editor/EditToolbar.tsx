@@ -10,7 +10,7 @@ const buttonClass =
   'min-h-11 rounded-sm border border-card-border px-3 text-[13px] text-ink hover:text-stamp'
 
 export function EditToolbar() {
-  const { session, editing, toggleEditing, updatedAt, setUpdatedAt, status, reportStatus } =
+  const { session, editing, toggleEditing, updatedAt, enqueueSave, status, reportStatus } =
     useEditor()
   const router = useRouter()
 
@@ -22,18 +22,16 @@ export function EditToolbar() {
   async function handleRevert() {
     if (!updatedAt) return
     if (!window.confirm('Revert the most recent save?')) return
-    try {
-      const result = await revertLastSave({ updatedAt })
-      if (result.ok) {
-        setUpdatedAt(result.updatedAt)
-        router.refresh()
-      } else {
-        reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
-      }
-    } catch {
-      // A rejected action (network/DB hiccup) reads the same as the
-      // action's own 'server' error, rather than an unhandled rejection.
-      reportStatus({ state: 'error', message: saveErrorMessage('server') })
+    // Routed through enqueueSave (not called directly with `updatedAt`)
+    // so a revert can never race a field commit's own queued save: see
+    // EditProvider.tsx's enqueueSave doc comment. enqueueSave's returned
+    // promise always resolves, so no try/catch is needed here; a thrown
+    // action already reads back as { ok: false, error: 'server' }.
+    const result = await enqueueSave((token) => revertLastSave({ updatedAt: token }))
+    if (result.ok) {
+      router.refresh()
+    } else {
+      reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
     }
   }
 

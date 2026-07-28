@@ -6,6 +6,51 @@ import { commitField, EditableField } from './Editable'
 import { useEditor } from './EditProvider'
 
 /**
+ * The URL input, extracted so it mounts fresh each time editing actually
+ * starts (this is only ever rendered from EditableLink's edit-mode branch,
+ * which itself only exists while isEditing is true) rather than once at
+ * EditableLink's own first mount. `EditableLink` stays mounted continuously
+ * across edit-mode toggles (its own `useRef` would freeze on whatever `url`
+ * happened to be in view mode, long before an admin ever started editing);
+ * this component's baseline is captured at its own mount, mirroring
+ * EditableField's edit-mount capture of `text`. Without this, a
+ * router.refresh triggered by another field's save could deliver a new
+ * `url` prop here while untouched, and that untouched input would then
+ * read as "changed" against the stale first-mount baseline and fire a
+ * spurious save.
+ */
+function UrlField({ urlPath, url }: { urlPath: string; url: string }) {
+  const { enqueueSave, reportStatus } = useEditor()
+  const router = useRouter()
+  const lastSavedRef = useRef(url.trim())
+
+  function handleBlur(event: React.FocusEvent<HTMLInputElement>) {
+    const input = event.currentTarget
+    void commitField({
+      path: urlPath,
+      value: input.value,
+      lastSavedRef,
+      restore: (previous) => {
+        input.value = previous
+      },
+      enqueueSave,
+      reportStatus,
+      router,
+    })
+  }
+
+  return (
+    <input
+      type="url"
+      className="editable-url-input"
+      defaultValue={url}
+      aria-label={`Edit ${urlPath}`}
+      onBlur={handleBlur}
+    />
+  )
+}
+
+/**
  * An anchor whose label and URL are each independently editable. View mode
  * renders exactly the current `<a target="_blank" rel="noopener
  * noreferrer">` markup; edit mode swaps the anchor for a `<span>` holding an
@@ -38,10 +83,8 @@ export function EditableLink({
   children?: React.ReactNode
   classNameFirst?: boolean
 }) {
-  const { session, editing, updatedAt, setUpdatedAt, reportStatus } = useEditor()
-  const router = useRouter()
+  const { session, editing } = useEditor()
   const isEditing = session === 'admin' && editing
-  const lastSavedUrlRef = useRef(url)
 
   if (!isEditing) {
     return classNameFirst ? (
@@ -57,33 +100,11 @@ export function EditableLink({
     )
   }
 
-  function handleUrlBlur(event: React.FocusEvent<HTMLInputElement>) {
-    const input = event.currentTarget
-    void commitField({
-      path: urlPath,
-      value: input.value,
-      lastSavedRef: lastSavedUrlRef,
-      restore: (previous) => {
-        input.value = previous
-      },
-      updatedAt,
-      setUpdatedAt,
-      reportStatus,
-      router,
-    })
-  }
-
   return (
     <span className={className} onClick={(event) => event.preventDefault()}>
       <EditableField path={labelPath} text={label} as="span" />
       {children}
-      <input
-        type="url"
-        className="editable-url-input"
-        defaultValue={url}
-        aria-label={`Edit ${urlPath}`}
-        onBlur={handleUrlBlur}
-      />
+      <UrlField urlPath={urlPath} url={url} />
     </span>
   )
 }

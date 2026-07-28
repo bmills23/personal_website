@@ -157,7 +157,10 @@ body {
   margin-top: 0.25rem;
   width: 100%;
   max-width: 20rem;
-  border: 1px solid var(--color-card-border);
+  /* --color-card-border is ~1.02:1 against --color-paper (see its own
+     definition above): invisible as a form-control boundary.
+     --color-control-border exists for exactly this. */
+  border: 1px solid var(--color-control-border);
   border-radius: 2px;
   background: var(--color-paper);
   padding: 0.375rem 0.5rem;

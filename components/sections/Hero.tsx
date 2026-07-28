@@ -1,9 +1,8 @@
 import type { Content } from '@/lib/content/schema'
-import { Stamp } from '@/components/shell/Stamp'
 import { MarginNote } from '@/components/shell/MarginNote'
 import { Highlight } from '@/components/shell/Highlight'
 import { splitHighlights } from '@/lib/highlight'
-import { Editable, EditableInline } from '@/components/editor/Editable'
+import { Editable, EditableStamp } from '@/components/editor/Editable'
 
 /**
  * The hero's h1 is the page's Largest Contentful Paint element and the
@@ -24,9 +23,7 @@ export function Hero({ hero }: { hero: Content['hero'] }) {
           as="p"
           className="text-[11px] uppercase tracking-[0.18em] text-pencil"
         />
-        <Stamp>
-          <EditableInline path="hero.stamp" text={hero.stamp} />
-        </Stamp>
+        <EditableStamp path="hero.stamp" text={hero.stamp} />
       </div>
       <Editable
         path="hero.name"

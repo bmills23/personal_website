@@ -2,7 +2,8 @@
 
 import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { saveField } from '@/app/actions/content'
+import { saveField, type SaveResult } from '@/app/actions/content'
+import { Stamp } from '@/components/shell/Stamp'
 import { saveErrorMessage, useEditor, type SaveStatus } from './EditProvider'
 
 export type EditableTag = 'p' | 'span' | 'h1' | 'h2' | 'h3' | 'li'
@@ -64,14 +65,20 @@ export function insertPlainText(element: HTMLElement, text: string) {
  * token, and an unset token all read and restore identically everywhere.
  * Not a hook: it takes its editor-context values as plain arguments so any
  * event handler can call it directly.
+ *
+ * Routes the actual write through `enqueueSave` (from `useEditor()`)
+ * instead of calling `saveField` with a token read here: `enqueueSave`
+ * serializes every write across the whole page and supplies the token at
+ * the moment its turn executes, not at the moment this function was
+ * called, which is what keeps two near-simultaneous commits on different
+ * fields from racing each other's token stale (see EditProvider.tsx).
  */
 export async function commitField({
   path,
   value,
   lastSavedRef,
   restore,
-  updatedAt,
-  setUpdatedAt,
+  enqueueSave,
   reportStatus,
   router,
 }: {
@@ -79,38 +86,22 @@ export async function commitField({
   value: string
   lastSavedRef: React.MutableRefObject<string>
   restore: (previous: string) => void
-  updatedAt: string | null
-  setUpdatedAt: (token: string) => void
+  enqueueSave: (fn: (token: string) => Promise<SaveResult>) => Promise<SaveResult>
   reportStatus: (status: SaveStatus) => void
   router: Router
 }): Promise<void> {
   const trimmed = value.trim()
   if (trimmed === lastSavedRef.current) return
 
-  // No token in context means there is nothing to save against: refuse and
-  // put the field back the way it was rather than leaving an edit the next
-  // successful save could clobber with a stale base.
-  if (updatedAt === null) {
-    restore(lastSavedRef.current)
-    reportStatus({ state: 'error', message: saveErrorMessage('server') })
-    return
-  }
-
   reportStatus({ state: 'saving' })
-  try {
-    const result = await saveField({ path, value: trimmed, updatedAt })
-    if (result.ok) {
-      lastSavedRef.current = trimmed
-      setUpdatedAt(result.updatedAt)
-      reportStatus({ state: 'saved' })
-      router.refresh()
-    } else {
-      restore(lastSavedRef.current)
-      reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
-    }
-  } catch {
+  const result = await enqueueSave((token) => saveField({ path, value: trimmed, updatedAt: token }))
+  if (result.ok) {
+    lastSavedRef.current = trimmed
+    reportStatus({ state: 'saved' })
+    router.refresh()
+  } else {
     restore(lastSavedRef.current)
-    reportStatus({ state: 'error', message: saveErrorMessage('server') })
+    reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
   }
 }
 
@@ -146,10 +137,14 @@ export function EditableField({
   placeholder?: string
   style?: React.CSSProperties
 }) {
-  const { updatedAt, setUpdatedAt, reportStatus } = useEditor()
+  const { enqueueSave, reportStatus } = useEditor()
   const router = useRouter()
   const mountedTextRef = useRef(text)
-  const lastSavedRef = useRef(text)
+  // Trimmed, not raw: the commit path always compares against
+  // value.trim(), so a stored value with stray leading/trailing whitespace
+  // must not read as "changed" on an untouched blur. Escape's restore
+  // reads this same ref, so it inherits the trimmed baseline too.
+  const lastSavedRef = useRef(text.trim())
   const Tag = as
 
   function handlePaste(event: React.ClipboardEvent<HTMLElement>) {
@@ -194,8 +189,7 @@ export function EditableField({
       restore: (previous) => {
         element.textContent = previous
       },
-      updatedAt,
-      setUpdatedAt,
+      enqueueSave,
       reportStatus,
       router,
     })
@@ -287,4 +281,27 @@ export function EditableInline({
   }
 
   return <EditableField path={path} text={text} as={as} className={className} />
+}
+
+/**
+ * hero.stamp specifically: Stamp itself is the wrapper (Hero.tsx does not
+ * render its own `<Stamp>` around this), so it can own the aria-hidden
+ * toggle. View mode is exactly `<Stamp>{text}</Stamp>`, byte-identical to
+ * Hero.tsx before this ever existed. Edit mode drops aria-hidden (WCAG
+ * aria-hidden-focus: see Stamp.tsx) so the contentEditable control inside
+ * it is reachable to assistive tech.
+ */
+export function EditableStamp({ path, text }: { path: string; text: string }) {
+  const { session, editing } = useEditor()
+  const isEditing = session === 'admin' && editing
+
+  if (!isEditing) {
+    return <Stamp>{text}</Stamp>
+  }
+
+  return (
+    <Stamp ariaHidden={false}>
+      <EditableField path={path} text={text} as="span" />
+    </Stamp>
+  )
 }
