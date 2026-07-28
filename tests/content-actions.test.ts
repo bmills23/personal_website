@@ -62,9 +62,16 @@ describe('saveField', () => {
   it('reports stale when the client token does not match the stored row', async () => {
     requireAdminSession.mockResolvedValue({ ok: true, login: 'bmills23' })
     primeLoad()
+    // Prime a write result that WOULD succeed if the guard let the write through. If the
+    // client-token check is falsely removed, the action would proceed to this primed write
+    // and return ok:true with two sql calls; priming it here is what makes this test able to
+    // fail, rather than passing vacuously because there is nothing queued for a write.
+    sqlResults.push([{ updated_at: '2026-07-28 09:00:00.000+00' }])
     const { saveField } = await import('@/app/actions/content')
     const result = await saveField({ path: 'about.heading', value: 'X', updatedAt: 'some-older-token' })
     expect(result).toEqual({ ok: false, error: 'stale' })
+    // The guarded early return means the write must never be attempted: only the read happens.
+    expect(sqlCalls).toHaveLength(1)
     expect(updateTag).not.toHaveBeenCalled()
   })
   it('reports stale when the guarded write affects zero rows', async () => {
