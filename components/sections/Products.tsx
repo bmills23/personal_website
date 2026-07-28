@@ -6,7 +6,7 @@ import { WrittenHeading } from '@/components/shell/WrittenHeading'
 import { Icon } from '@/components/Icon'
 import { Editable } from '@/components/editor/Editable'
 import { EditableLink } from '@/components/editor/EditableLink'
-import { ArrayControls } from '@/components/editor/ArrayControls'
+import { ArrayControls, ArrayAddButton } from '@/components/editor/ArrayControls'
 
 export function Products({
   products,
@@ -83,6 +83,7 @@ export function Products({
                   </Fragment>
                 ))}
               </ul>
+              <ArrayAddButton kind="tag" items={products} arrayKey={`products.${i}.tags`} />
               <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-card-border pt-3">
                 {product.links.map((link, j) => (
                   <EditableLink
@@ -101,6 +102,7 @@ export function Products({
           </Reveal>
         ))}
       </div>
+      <ArrayAddButton kind="product" items={products} arrayKey="products" />
     </section>
   )
 }

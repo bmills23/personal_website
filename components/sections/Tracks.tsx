@@ -2,7 +2,7 @@ import type { Content } from '@/lib/content/schema'
 import { Reveal } from '@/components/shell/Reveal'
 import { WrittenHeading } from '@/components/shell/WrittenHeading'
 import { Editable, EditableInline } from '@/components/editor/Editable'
-import { ArrayControls } from '@/components/editor/ArrayControls'
+import { ArrayControls, ArrayAddButton } from '@/components/editor/ArrayControls'
 
 export function Tracks({
   tracks,
@@ -75,6 +75,11 @@ export function Tracks({
                   </div>
                 ))}
               </div>
+              <ArrayAddButton
+                kind="entry"
+                items={track.entries}
+                arrayKey={`tracks.${i}.entries`}
+              />
             </div>
           </Reveal>
         ))}

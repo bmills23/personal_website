@@ -1,9 +1,10 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { saveArray } from '@/app/actions/content'
+import { saveArray, type SaveResult } from '@/app/actions/content'
+import { ARRAY_LIMITS } from '@/lib/content/schema'
 import { newProduct, newTrackEntry, uniqueId } from '@/lib/editor/templates'
-import { saveErrorMessage, useEditor } from './EditProvider'
+import { saveErrorMessage, useEditor, type SaveStatus } from './EditProvider'
 
 export type ArrayControlsKind = 'product' | 'entry' | 'tag'
 
@@ -34,7 +35,7 @@ type Target = {
    * `lib/content/write.ts`'s `ARRAY_KEY_RE` has no standalone
    * `'products.N.tags'` key - only a whole-products-array replacement. */
   saveKey: string
-  /** The array `index` actually indexes into: `items` itself for a
+  /** The array an op actually reads/splices: `items` itself for a
    * product/entry op, or the owning product's `tags` array for a tag op. */
   subArray: unknown[]
   /** Folds a new sub-array back into the whole value `saveArray` expects. */
@@ -44,8 +45,8 @@ type Target = {
 const TAG_KEY_RE = /^products\.(\d+)\.tags$/
 
 /**
- * Resolves `{ kind, items, arrayKey }` into what a splice actually operates
- * on and what `saveArray` ultimately needs.
+ * Resolves `{ kind, items, arrayKey }` into what an op actually operates on
+ * and what `saveArray` ultimately needs.
  *
  * For `'product'`/`'entry'`, `items` IS the array `saveArray` replaces
  * wholesale (the products array, or one track's entries array), so this is
@@ -54,8 +55,10 @@ const TAG_KEY_RE = /^products\.(\d+)\.tags$/
  * For `'tag'`, the caller passes the FULL products array as `items` (tags
  * have no standalone saveArray key) and an arrayKey shaped
  * `products.${productIndex}.tags`; this pulls out that one product's `tags`
- * array to splice, and `build` folds a new tags array back into a full
- * next-products array with every other product untouched.
+ * array, and `build` folds a new tags array back into a full next-products
+ * array with every other product untouched. Does not require `subArray` to
+ * be non-empty: a product with zero tags still resolves fine, which is what
+ * lets `ArrayAddButton` work on an empty collection.
  */
 function resolveTarget(kind: ArrayControlsKind, items: unknown[], arrayKey: string): Target {
   if (kind === 'tag') {
@@ -88,21 +91,84 @@ function buildTemplate(kind: ArrayControlsKind, subArray: unknown[]): unknown {
   return uniqueId('tag', subArray as string[])
 }
 
+function capFor(kind: ArrayControlsKind): number {
+  if (kind === 'product') return ARRAY_LIMITS.products
+  if (kind === 'entry') return ARRAY_LIMITS['tracks.entries']
+  return ARRAY_LIMITS['products.tags']
+}
+
 /**
- * Compact add/remove/reorder button row for one item of an editable array
- * (a product card, a work-track entry, or a tag). Renders `null` outside
- * edit mode so a visitor's DOM is never touched - same contract as
- * `Editable` (see Editable.tsx).
+ * Shared save path for every op in this file (remove, move, add). Routes
+ * through `enqueueSave` purely for serialization - so an array op can never
+ * race a field commit or another array op for the SAME token slot - but,
+ * unlike `commitField` (Editable.tsx) and unlike `EditToolbar`'s revert,
+ * deliberately ignores the execution-time token `enqueueSave`'s callback is
+ * handed and sends `clickToken` (captured by the caller at click time)
+ * instead.
  *
- * Every operation builds the whole next array client-side (a splice copy
- * of the current, already-rendered props) and saves it through
- * `enqueueSave`, so an array op can never race a field commit or another
- * array op for the same token, exactly like `commitField` does for a
- * field (see Editable.tsx / EditProvider.tsx). Unlike `commitField`, a
- * failure here has no local DOM draft to restore - the section always
- * renders straight from server props - so the failure branch only reports
- * the mapped error; a later refresh (this one's success or any other) is
- * what re-syncs the page.
+ * Why the asymmetry: a field commit's base is a single leaf, so a token
+ * that advanced between this commit being queued and it actually running is
+ * still a perfectly valid base for THAT SAME leaf - nothing about the leaf
+ * changed just because some other field saved. An array op's base is the
+ * WHOLE array read off render-time props at the moment its button was
+ * clicked. If a second array op is clicked before the first one's
+ * `router.refresh()` has re-rendered those props, both ops compute their
+ * next-array payload from the SAME stale array. Taking the execution-time
+ * token for the second op would let its stale payload sail through under a
+ * token that only proves the array key advanced (not that THIS payload's
+ * base is still current) - silently clobbering the first op's change with
+ * no error at all. Pinning the token to click time means the second op
+ * always carries the token that was actually current when ITS payload was
+ * computed, so the server's optimistic-concurrency check
+ * (`current.updatedAt !== clientToken` in app/actions/content.ts's
+ * `commit()`) correctly rejects it as `'stale'` instead of the staleness
+ * being laundered through silently. DO NOT change this back to read the
+ * execution-time token argument - see
+ * `tests/array-controls-race.test.tsx`, which fails if you do.
+ */
+async function runArraySave({
+  enqueueSave,
+  reportStatus,
+  router,
+  clickToken,
+  saveKey,
+  value,
+}: {
+  enqueueSave: (fn: (token: string) => Promise<SaveResult>) => Promise<SaveResult>
+  reportStatus: (status: SaveStatus) => void
+  router: { refresh: () => void }
+  clickToken: string | null
+  saveKey: string
+  value: unknown
+}): Promise<void> {
+  if (clickToken === null) {
+    reportStatus({ state: 'error', message: saveErrorMessage('server') })
+    return
+  }
+  reportStatus({ state: 'saving' })
+  const result = await enqueueSave(() => saveArray({ key: saveKey, value, updatedAt: clickToken }))
+  if (result.ok) {
+    reportStatus({ state: 'saved' })
+    router.refresh()
+  } else {
+    reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
+    // A stale rejection means server state moved since this payload's base
+    // was read; refresh so props re-sync and the owner can just re-click
+    // against current data. Other failures (invalid, unauthorized, server)
+    // don't imply the visible data is out of date, so they don't refresh.
+    if (result.error === 'stale') {
+      router.refresh()
+    }
+  }
+}
+
+/**
+ * Compact remove/reorder button row for one item of an editable array (a
+ * product card, a work-track entry, or a tag). Renders `null` outside edit
+ * mode so a visitor's DOM is never touched - same contract as `Editable`
+ * (see Editable.tsx). The "add" control lives in the separate
+ * `ArrayAddButton` below, rendered once per collection rather than anchored
+ * to this component's last item - see its own doc comment for why.
  */
 export function ArrayControls({
   kind,
@@ -115,7 +181,7 @@ export function ArrayControls({
   index: number
   arrayKey: string
 }) {
-  const { session, editing, enqueueSave, reportStatus } = useEditor()
+  const { session, editing, enqueueSave, reportStatus, updatedAt, status } = useEditor()
   const router = useRouter()
   const isEditing = session === 'admin' && editing
 
@@ -123,44 +189,60 @@ export function ArrayControls({
 
   const { saveKey, subArray, build } = resolveTarget(kind, items, arrayKey)
   const isLast = index === subArray.length - 1
-
-  async function commit(nextSub: unknown[]) {
-    reportStatus({ state: 'saving' })
-    const result = await enqueueSave((token) =>
-      saveArray({ key: saveKey, value: build(nextSub), updatedAt: token }),
-    )
-    if (result.ok) {
-      reportStatus({ state: 'saved' })
-      router.refresh()
-    } else {
-      reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
-    }
-  }
+  // Disabling every button while ANY save is in flight (not just this row's
+  // own) shrinks the window for the stale-payload race above even further:
+  // the click-time-token fix is what makes a race safe, this is what makes
+  // one rarer to begin with.
+  const savingDisabled = status.state === 'saving'
 
   function handleRemove() {
+    if (savingDisabled) return
     // Tags are not destructive enough to warrant a confirm (low-stakes,
     // trivially re-added); products and entries are, per the brief.
     if (kind !== 'tag' && !window.confirm(`Remove this ${kind}?`)) return
-    void commit(withoutIndex(subArray, index))
+    void runArraySave({
+      enqueueSave,
+      reportStatus,
+      router,
+      clickToken: updatedAt,
+      saveKey,
+      value: build(withoutIndex(subArray, index)),
+    })
   }
 
   function handleMoveUp() {
-    if (index === 0) return
-    void commit(swapped(subArray, index, index - 1))
+    if (savingDisabled || index === 0) return
+    void runArraySave({
+      enqueueSave,
+      reportStatus,
+      router,
+      clickToken: updatedAt,
+      saveKey,
+      value: build(swapped(subArray, index, index - 1)),
+    })
   }
 
   function handleMoveDown() {
-    if (isLast) return
-    void commit(swapped(subArray, index, index + 1))
-  }
-
-  function handleAdd() {
-    void commit([...subArray, buildTemplate(kind, subArray)])
+    if (savingDisabled || isLast) return
+    void runArraySave({
+      enqueueSave,
+      reportStatus,
+      router,
+      clickToken: updatedAt,
+      saveKey,
+      value: build(swapped(subArray, index, index + 1)),
+    })
   }
 
   return (
     <span className="inline-flex items-center gap-1">
-      <button type="button" aria-label={`Remove ${kind}`} className={buttonClass} onClick={handleRemove}>
+      <button
+        type="button"
+        aria-label={`Remove ${kind}`}
+        className={buttonClass}
+        disabled={savingDisabled}
+        onClick={handleRemove}
+      >
         &#215;
       </button>
       {kind !== 'tag' && (
@@ -169,7 +251,7 @@ export function ArrayControls({
             type="button"
             aria-label={`Move ${kind} up`}
             className={buttonClass}
-            disabled={index === 0}
+            disabled={index === 0 || savingDisabled}
             onClick={handleMoveUp}
           >
             &#8593;
@@ -178,18 +260,74 @@ export function ArrayControls({
             type="button"
             aria-label={`Move ${kind} down`}
             className={buttonClass}
-            disabled={isLast}
+            disabled={isLast || savingDisabled}
             onClick={handleMoveDown}
           >
             &#8595;
           </button>
         </>
       )}
-      {isLast && (
-        <button type="button" aria-label={`Add ${kind}`} className={buttonClass} onClick={handleAdd}>
-          +
-        </button>
-      )}
     </span>
+  )
+}
+
+/**
+ * The "add" control for one whole collection - rendered ONCE per collection
+ * (once after the products grid, once after each track's entries list, once
+ * after each product's tags row), not anchored to any particular item's
+ * row. Anchoring "add" to the last item's row (an earlier version of this
+ * file did that) means a collection with zero items has no row to hang it
+ * off of and so no way to add a first one; that is a real dead end here,
+ * not a hypothetical, since every product `newProduct` creates starts with
+ * `tags: []`. Rendering this unconditionally (including at zero items)
+ * closes that gap for all three kinds.
+ *
+ * Disabled at the collection's `ARRAY_LIMITS` cap (with an explanatory
+ * `title`) rather than letting a click round-trip to the server just to
+ * come back as a generic 'invalid' rejection.
+ */
+export function ArrayAddButton({
+  kind,
+  items,
+  arrayKey,
+}: {
+  kind: ArrayControlsKind
+  items: unknown[]
+  arrayKey: string
+}) {
+  const { session, editing, enqueueSave, reportStatus, updatedAt, status } = useEditor()
+  const router = useRouter()
+  const isEditing = session === 'admin' && editing
+
+  if (!isEditing) return null
+
+  const { saveKey, subArray, build } = resolveTarget(kind, items, arrayKey)
+  const cap = capFor(kind)
+  const atCap = subArray.length >= cap
+  const disabled = atCap || status.state === 'saving'
+
+  function handleAdd() {
+    if (disabled) return
+    void runArraySave({
+      enqueueSave,
+      reportStatus,
+      router,
+      clickToken: updatedAt,
+      saveKey,
+      value: build([...subArray, buildTemplate(kind, subArray)]),
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={`Add ${kind}`}
+      className={buttonClass}
+      disabled={disabled}
+      title={atCap ? `Limit reached (${cap} max)` : undefined}
+      onClick={handleAdd}
+    >
+      +
+    </button>
   )
 }
