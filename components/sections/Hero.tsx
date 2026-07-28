@@ -1,8 +1,8 @@
 import type { Content } from '@/lib/content/schema'
-import { MarginNote } from '@/components/shell/MarginNote'
 import { Highlight } from '@/components/shell/Highlight'
 import { splitHighlights } from '@/lib/highlight'
 import { Editable, EditableStamp } from '@/components/editor/Editable'
+import { EditableMarginNote } from '@/components/editor/EditableMarginNote'
 
 /**
  * The hero's h1 is the page's Largest Contentful Paint element and the
@@ -46,7 +46,16 @@ export function Hero({ hero }: { hero: Content['hero'] }) {
         )}
       </Editable>
       <div className="mt-8">
-        <MarginNote>&#8599; two careers, one set of tools</MarginNote>
+        {/* decoration is a plain JS string literal in an expression
+            container (not a JSX-text/attribute HTML entity, whose decoding
+            rules differ), so the arrow glyph is unambiguous: U+2197, NORTH
+            EAST ARROW, matching the original hardcoded '&#8599;'. */}
+        <EditableMarginNote
+          path="hero.marginNote"
+          text={hero.marginNote}
+          wrapper="div"
+          decoration={'↗'}
+        />
       </div>
     </section>
   )

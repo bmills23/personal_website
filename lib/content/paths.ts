@@ -16,6 +16,7 @@ export const EDITABLE_PATTERNS = [
   'hero.lede',
   'hero.stamp',
   'hero.highlights.#',
+  'hero.marginNote',
   'about.heading',
   'about.marginNote',
   'about.paragraphs.#',
