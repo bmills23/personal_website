@@ -127,13 +127,29 @@ export async function commitField({
  * element "uncontrolled after that" per the brief, while still re-syncing
  * to a value that changed out from under it (a router.refresh() landing
  * after some OTHER field's commit, e.g. because a sibling array item was
- * removed/reordered) instead of silently going stale. Safe against
- * clobbering an in-progress keystroke: typing is uncontrolled and never
- * touches this `text` prop, and this exact field cannot be mid-edit AND
- * have a differing incoming `text` prop at the same time, since the only
- * way its own document value changes is through ITS OWN commit path
- * (Enter/blur/Escape), every one of which removes focus before the
- * resulting refresh can land.
+ * removed/reordered) instead of silently going stale.
+ *
+ * Focus safety, stated precisely. Typing is uncontrolled and never touches
+ * the `text` prop, and a field's own commit path (Enter/blur/Escape) always
+ * removes focus before the resulting refresh can land, so ordinary editing
+ * never remounts under the caret.
+ *
+ * One residual case is NOT covered, and narrowing it further needs stable
+ * per-item ids the schema does not have. Arrays of bare values (a product's
+ * tags, footer/product links, about paragraphs) have no identity beyond
+ * their content, so `contentKeys` disambiguates literal duplicates by
+ * occurrence order. If an array holds two items with IDENTICAL text and an
+ * EARLIER duplicate is removed while a LATER one is mid-edit (needs a
+ * second tab, or a browser that does not blur a contenteditable when a
+ * button elsewhere is clicked), the survivor's occurrence index shifts, its
+ * key changes, and the subtree remounts: the uncommitted keystrokes are
+ * discarded and the field falls back to its last saved value. Nothing is
+ * written to the wrong path and nothing is saved incorrectly, the in-flight
+ * draft is simply lost. This is strictly better than the index-keyed
+ * behavior it replaced, where ANY earlier removal unmounted a later focused
+ * field whether or not the values were duplicates. Verified empirically:
+ * with unique values the same scenario preserves the node, the focus, and
+ * the draft.
  */
 export function EditableField({
   path,
