@@ -2,6 +2,7 @@ import type { Content } from '@/lib/content/schema'
 import { Reveal } from '@/components/shell/Reveal'
 import { WrittenHeading } from '@/components/shell/WrittenHeading'
 import { Editable, EditableInline } from '@/components/editor/Editable'
+import { ArrayControls } from '@/components/editor/ArrayControls'
 
 export function Tracks({
   tracks,
@@ -49,6 +50,12 @@ export function Tracks({
               <div className="mt-4 space-y-6">
                 {track.entries.map((entry, ei) => (
                   <div key={entry.id}>
+                    <ArrayControls
+                      kind="entry"
+                      items={track.entries}
+                      index={ei}
+                      arrayKey={`tracks.${i}.entries`}
+                    />
                     <Editable
                       path={`tracks.${i}.entries.${ei}.org`}
                       text={entry.org}

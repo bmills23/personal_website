@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import type { Content } from '@/lib/content/schema'
 import { TapedCard } from '@/components/shell/TapedCard'
 import { Reveal } from '@/components/shell/Reveal'
@@ -5,6 +6,7 @@ import { WrittenHeading } from '@/components/shell/WrittenHeading'
 import { Icon } from '@/components/Icon'
 import { Editable } from '@/components/editor/Editable'
 import { EditableLink } from '@/components/editor/EditableLink'
+import { ArrayControls } from '@/components/editor/ArrayControls'
 
 export function Products({
   products,
@@ -36,6 +38,7 @@ export function Products({
         {products.map((product, i) => (
           <Reveal key={product.id} delay={i * 0.08} variant="card">
             <TapedCard alt={i % 2 === 1} className="h-full">
+              <ArrayControls kind="product" items={products} index={i} arrayKey="products" />
               <div className="flex items-baseline justify-between gap-3">
                 <Editable
                   path={`products.${i}.name`}
@@ -64,13 +67,20 @@ export function Products({
               />
               <ul className="mt-4 flex flex-wrap gap-2">
                 {product.tags.map((tag, j) => (
-                  <Editable
-                    key={j}
-                    path={`products.${i}.tags.${j}`}
-                    text={tag}
-                    as="li"
-                    className="rounded-sm border border-card-border px-2 py-1 text-[11px] text-pencil"
-                  />
+                  <Fragment key={j}>
+                    <Editable
+                      path={`products.${i}.tags.${j}`}
+                      text={tag}
+                      as="li"
+                      className="rounded-sm border border-card-border px-2 py-1 text-[11px] text-pencil"
+                    />
+                    <ArrayControls
+                      kind="tag"
+                      items={products}
+                      index={j}
+                      arrayKey={`products.${i}.tags`}
+                    />
+                  </Fragment>
                 ))}
               </ul>
               <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-card-border pt-3">
