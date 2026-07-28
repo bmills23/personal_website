@@ -89,13 +89,13 @@ editor does not use.
 
 ## Graceful degradation
 
-The public site never depends on the editor. Verified by building and
-running with none of the editor's environment variables present (see
-`.superpowers/sdd/2026-07-28-personal-website-editor/task-8-report.md` for
-the exact commands and output):
+The public site never depends on the editor. Verified 2026-07-28 by moving
+`.env.local` aside (so no database or auth environment variables were
+present at all, matching a cold clone) and running `npm run build` then
+`npm run start` against that env-less state. Three results were observed:
 
-- `npm run build` and `npm run start` succeed.
-- The home page renders full seed content.
-- `/login` reads "Editor not configured" instead of erroring.
-- The rendered page carries zero editor traces: no `contenteditable`, no
+- The home page rendered full seed content (the database read fails
+  cleanly and falls back to `seed/content.json`).
+- `/login` showed the "Editor not configured" card instead of erroring.
+- The rendered page carried zero editor traces: no `contenteditable`, no
   `data-editable` attributes, no toolbar.
