@@ -110,25 +110,34 @@ export async function revertLastSave(input: { updatedAt: string }): Promise<Save
     if (!restored.success) return { ok: false, error: 'server' }
     const historyId = historyRows[0].id as number
 
-    // Snapshot current, consume the restored history row, and swap the doc
-    // in one statement so a race cannot leave history half-applied. Revert
-    // twice returns to where you started; nothing is ever lost.
+    // `upd` is the row-locking sub-statement, same reasoning as
+    // persistContent: it is the one Postgres blocks and re-evaluates
+    // against a concurrent writer's committed row, so its RETURNING output
+    // is the only trustworthy signal of whether the restore actually
+    // happened. Both the history snapshot and the history-row consumption
+    // are gated on `exists (select 1 from upd)`, which cannot resolve
+    // until upd itself has fully resolved, so a racing save or revert
+    // leaves neither a spurious snapshot nor a wrongly-deleted history row.
+    // Sub-statements share one snapshot and cannot see each other's writes
+    // to the target table, so snap's `select doc from content` still reads
+    // the PRE-restore doc even though upd already overwrote it.
     const rows = await sql`
-      with snap as (
+      with upd as (
+        update content
+           set doc = ${JSON.stringify(restored.data)}::jsonb, updated_at = now()
+         where id = 1
+           and updated_at = ${current.updatedAt}::timestamptz
+         returning updated_at::text as updated_at
+      ), snap as (
         insert into content_history (doc)
-        select doc from content where id = 1 and updated_at = ${current.updatedAt}::timestamptz
+        select doc from content where id = 1 and exists (select 1 from upd)
         returning id
       ), consumed as (
         delete from content_history
-         where id = ${historyId} and exists (select 1 from snap)
+         where id = ${historyId} and exists (select 1 from upd)
         returning id
       )
-      update content
-         set doc = ${JSON.stringify(restored.data)}::jsonb, updated_at = now()
-       where id = 1
-         and updated_at = ${current.updatedAt}::timestamptz
-         and exists (select 1 from consumed)
-       returning updated_at::text as updated_at
+      select updated_at from upd
     `
     if (rows.length === 0) return { ok: false, error: 'stale' }
     updateTag('content')

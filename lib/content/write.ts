@@ -69,6 +69,24 @@ function hasUniqueIds(items: { id: string }[]): boolean {
   return new Set(items.map((item) => item.id)).size === items.length
 }
 
+/**
+ * Walks the PARSED value (never a JSON.stringify()'d version of it, which
+ * escapes control characters into printable backslash sequences and would
+ * defeat this check entirely) looking for a control character anywhere in
+ * any string, at any depth. applyFieldChange's CONTROL_CHARS.test(value)
+ * only ever sees a single string leaf; array saves replace a whole
+ * product or entry object, so the same rule has to be applied recursively
+ * across every string field the payload contains.
+ */
+function containsControlChars(value: unknown): boolean {
+  if (typeof value === 'string') return CONTROL_CHARS.test(value)
+  if (Array.isArray(value)) return value.some(containsControlChars)
+  if (value !== null && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(containsControlChars)
+  }
+  return false
+}
+
 export function applyArrayChange(doc: Content, key: string, value: unknown): ApplyResult {
   const match = typeof key === 'string' ? ARRAY_KEY_RE.exec(key) : null
   if (!match) return { ok: false, reason: 'path' }
@@ -76,13 +94,17 @@ export function applyArrayChange(doc: Content, key: string, value: unknown): App
   const next = structuredClone(doc)
   if (match[1] === 'products') {
     const parsed = productsArraySchema.safeParse(value)
-    if (!parsed.success || !hasUniqueIds(parsed.data)) return { ok: false, reason: 'invalid' }
+    if (!parsed.success || !hasUniqueIds(parsed.data) || containsControlChars(parsed.data)) {
+      return { ok: false, reason: 'invalid' }
+    }
     next.products = parsed.data
   } else {
     const trackIndex = Number(match[2])
     if (trackIndex >= doc.tracks.length) return { ok: false, reason: 'missing' }
     const parsed = entriesArraySchema.safeParse(value)
-    if (!parsed.success || !hasUniqueIds(parsed.data)) return { ok: false, reason: 'invalid' }
+    if (!parsed.success || !hasUniqueIds(parsed.data) || containsControlChars(parsed.data)) {
+      return { ok: false, reason: 'invalid' }
+    }
     next.tracks[trackIndex].entries = parsed.data
   }
 
@@ -121,10 +143,17 @@ export async function loadCurrent(): Promise<{ doc: Content; updatedAt: string }
 }
 
 /**
- * Single-statement optimistic write: snapshot the current doc into history
- * and replace it, both gated on updated_at still matching the value the
- * mutation was computed from. One statement means one snapshot: the
- * history copy and the overwrite can never disagree about "current".
+ * Single-statement optimistic write. `upd` is the row-locking sub-statement:
+ * it is the one Postgres actually blocks on a concurrent writer's lock and
+ * re-evaluates against the freshly committed row, so its RETURNING output
+ * is the only trustworthy signal of whether the write really happened.
+ * Every history mutation is gated on `exists (select 1 from upd)`, which
+ * cannot resolve until upd itself has fully resolved (lock wait included),
+ * so a lost race never leaves a spurious history row behind. Sub-statements
+ * in one WITH clause share a single snapshot and cannot see each other's
+ * writes to the target table, so snap's `select doc from content` still
+ * reads the PRE-update doc even though upd already rewrote it in the same
+ * statement, which is exactly the row history is supposed to capture.
  */
 export async function persistContent(
   newDoc: Content,
@@ -132,17 +161,18 @@ export async function persistContent(
 ): Promise<{ updatedAt: string }> {
   const sql = getSql()
   const rows = await sql`
-    with snap as (
+    with upd as (
+      update content
+         set doc = ${JSON.stringify(newDoc)}::jsonb, updated_at = now()
+       where id = 1
+         and updated_at = ${expectedUpdatedAt}::timestamptz
+       returning updated_at::text as updated_at
+    ), snap as (
       insert into content_history (doc)
-      select doc from content where id = 1 and updated_at = ${expectedUpdatedAt}::timestamptz
+      select doc from content where id = 1 and exists (select 1 from upd)
       returning id
     )
-    update content
-       set doc = ${JSON.stringify(newDoc)}::jsonb, updated_at = now()
-     where id = 1
-       and updated_at = ${expectedUpdatedAt}::timestamptz
-       and exists (select 1 from snap)
-     returning updated_at::text as updated_at
+    select updated_at from upd
   `
   if (rows.length === 0) throw new StaleWriteError()
   return { updatedAt: rows[0].updated_at as string }

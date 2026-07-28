@@ -33,6 +33,14 @@ describe('applyFieldChange', () => {
     // and must be caught by the existence check.
     expect(applyFieldChange(doc, 'products.5.name', 'ghost')).toEqual({ ok: false, reason: 'missing' })
   })
+  it('rejects a leaf-only miss where the container itself still exists', () => {
+    // about.paragraphs cap is 5, the seed has 3: 'about' and 'paragraphs'
+    // both resolve fine (the container array exists), so this is caught
+    // only by the leaf-existence check at the end of the walk, not by the
+    // intermediate-segment loop, making that check independently
+    // falsifiable rather than always shadowed by the loop's own check.
+    expect(applyFieldChange(doc, 'about.paragraphs.4', 'x')).toEqual({ ok: false, reason: 'missing' })
+  })
   it('rejects a value the whole-document schema refuses', () => {
     expect(applyFieldChange(doc, 'hero.name', '')).toEqual({ ok: false, reason: 'invalid' })
     expect(applyFieldChange(doc, 'hero.stamp', 'x'.repeat(21))).toEqual({ ok: false, reason: 'invalid' })
@@ -79,5 +87,16 @@ describe('applyArrayChange', () => {
   })
   it('rejects structurally invalid members', () => {
     expect(applyArrayChange(doc, 'products', [{ id: 'x' }])).toEqual({ ok: false, reason: 'invalid' })
+  })
+  it('rejects control characters buried inside an array-path payload', () => {
+    const withEscapeCode = doc.products.map((product, i) =>
+      i === 0 ? { ...product, name: 'Foo\u001B[2J' } : product,
+    )
+    expect(applyArrayChange(doc, 'products', withEscapeCode)).toEqual({ ok: false, reason: 'invalid' })
+
+    const withCrlf = doc.tracks[0].entries.map((entry, i) =>
+      i === 0 ? { ...entry, body: 'x\r\ny' } : entry,
+    )
+    expect(applyArrayChange(doc, 'tracks.0.entries', withCrlf)).toEqual({ ok: false, reason: 'invalid' })
   })
 })

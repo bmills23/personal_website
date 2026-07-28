@@ -109,6 +109,16 @@ describe('saveArray', () => {
     expect(result).toEqual({ ok: false, error: 'unauthorized' })
     expect(sqlCalls).toHaveLength(0)
   })
+  it('writes a valid reordered products array and invalidates the content tag', async () => {
+    requireAdminSession.mockResolvedValue({ ok: true, login: 'bmills23' })
+    primeLoad()
+    sqlResults.push([{ updated_at: '2026-07-28 08:00:03.000+00' }])
+    const { saveArray } = await import('@/app/actions/content')
+    const reordered = [...doc.products].reverse()
+    const result = await saveArray({ key: 'products', value: reordered, updatedAt: TOKEN })
+    expect(result).toEqual({ ok: true, updatedAt: '2026-07-28 08:00:03.000+00' })
+    expect(updateTag).toHaveBeenCalledWith('content')
+  })
 })
 
 describe('getEditorState', () => {
