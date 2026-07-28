@@ -1,6 +1,7 @@
 import type { Content } from '@/lib/content/schema'
 import { Reveal } from '@/components/shell/Reveal'
 import { WrittenHeading } from '@/components/shell/WrittenHeading'
+import { Editable, EditableInline } from '@/components/editor/Editable'
 
 export function Tracks({
   tracks,
@@ -11,9 +12,12 @@ export function Tracks({
 }) {
   return (
     <section id="work" className="border-t border-card-border py-14">
-      <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
-        {kicker}
-      </p>
+      <Editable
+        path="sections.work.kicker"
+        text={kicker}
+        as="p"
+        className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp"
+      />
       <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
         Work
       </WrittenHeading>
@@ -36,21 +40,31 @@ export function Tracks({
                   : 'md:pl-8'
               }
             >
-              <p className="text-[11px] uppercase tracking-[0.18em] text-pencil">
-                {track.label}
-              </p>
+              <Editable
+                path={`tracks.${i}.label`}
+                text={track.label}
+                as="p"
+                className="text-[11px] uppercase tracking-[0.18em] text-pencil"
+              />
               <div className="mt-4 space-y-6">
-                {track.entries.map((entry) => (
+                {track.entries.map((entry, ei) => (
                   <div key={entry.id}>
-                    <h3 className="font-display text-xl text-ink">{entry.org}</h3>
+                    <Editable
+                      path={`tracks.${i}.entries.${ei}.org`}
+                      text={entry.org}
+                      as="h3"
+                      className="font-display text-xl text-ink"
+                    />
                     <p className="mt-1 text-[13px] text-pencil">
-                      {entry.role} &middot; {entry.period}
+                      <EditableInline path={`tracks.${i}.entries.${ei}.role`} text={entry.role} /> &middot; <EditableInline path={`tracks.${i}.entries.${ei}.period`} text={entry.period} />
                     </p>
-                    {entry.body ? (
-                      <p className="mt-2 text-[15px] leading-relaxed text-graphite">
-                        {entry.body}
-                      </p>
-                    ) : null}
+                    <Editable
+                      path={`tracks.${i}.entries.${ei}.body`}
+                      text={entry.body}
+                      as="p"
+                      className="mt-2 text-[15px] leading-relaxed text-graphite"
+                      placeholder="entry details"
+                    />
                   </div>
                 ))}
               </div>

@@ -1,6 +1,7 @@
 import type { Content } from '@/lib/content/schema'
-import { WrittenHeading } from '@/components/shell/WrittenHeading'
 import { ContactForm } from '@/components/ContactForm'
+import { Editable } from '@/components/editor/Editable'
+import { HeadingEditable } from '@/components/editor/HeadingEditable'
 
 export function Contact({ contact }: { contact: Content['contact'] }) {
   // Server-only: read directly here rather than threading it through props
@@ -19,14 +20,18 @@ export function Contact({ contact }: { contact: Content['contact'] }) {
       <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
         Say hello
       </p>
-      <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
-        {contact.heading}
-      </WrittenHeading>
-      {contact.blurb ? (
-        <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-graphite">
-          {contact.blurb}
-        </p>
-      ) : null}
+      <HeadingEditable
+        path="contact.heading"
+        text={contact.heading}
+        className="font-display text-3xl text-ink sm:text-4xl"
+      />
+      <Editable
+        path="contact.blurb"
+        text={contact.blurb}
+        as="p"
+        className="mt-3 max-w-xl text-[16px] leading-relaxed text-graphite"
+        placeholder="blurb"
+      />
       <div className="mt-7">
         <ContactForm fallbackEmail={publicEmail} />
       </div>

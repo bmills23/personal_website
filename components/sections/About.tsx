@@ -1,7 +1,8 @@
 import type { Content } from '@/lib/content/schema'
-import { MarginNote } from '@/components/shell/MarginNote'
 import { Reveal } from '@/components/shell/Reveal'
-import { WrittenHeading } from '@/components/shell/WrittenHeading'
+import { Editable } from '@/components/editor/Editable'
+import { HeadingEditable } from '@/components/editor/HeadingEditable'
+import { EditableMarginNote } from '@/components/editor/EditableMarginNote'
 
 export function About({ about }: { about: Content['about'] }) {
   return (
@@ -10,20 +11,18 @@ export function About({ about }: { about: Content['about'] }) {
         <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-stamp">
           About
         </p>
-        <WrittenHeading as="h2" className="font-display text-3xl text-ink sm:text-4xl">
-          {about.heading}
-        </WrittenHeading>
+        <HeadingEditable
+          path="about.heading"
+          text={about.heading}
+          className="font-display text-3xl text-ink sm:text-4xl"
+        />
         <div className="mt-6 grid gap-8 md:grid-cols-[minmax(0,1fr)_180px]">
           <div className="space-y-4 text-[16px] leading-relaxed text-graphite">
             {about.paragraphs.map((paragraph, i) => (
-              <p key={i}>{paragraph}</p>
+              <Editable key={i} path={`about.paragraphs.${i}`} text={paragraph} as="p" />
             ))}
           </div>
-          {about.marginNote ? (
-            <aside className="md:pt-2">
-              <MarginNote>{about.marginNote}</MarginNote>
-            </aside>
-          ) : null}
+          <EditableMarginNote path="about.marginNote" text={about.marginNote} wrapper="aside" />
         </div>
       </Reveal>
     </section>

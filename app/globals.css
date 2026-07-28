@@ -133,6 +133,38 @@ body {
   to { stroke-dashoffset: 0; }
 }
 
+/* Editable (components/editor/Editable.tsx): the in-place edit affordance
+   for admin-only fields. Never rendered for a visitor (edit mode only
+   mounts when session === 'admin' && editing), so this carries no
+   reduced-motion or no-JS gating of its own. */
+.editable {
+  outline: 1.5px dashed var(--color-pencil);
+  outline-offset: 3px;
+  border-radius: 2px;
+  cursor: text;
+  min-width: 1.5rem;
+}
+.editable:focus-visible {
+  outline: 2px solid var(--color-stamp);
+}
+.editable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-pencil);
+  opacity: 0.6;
+}
+.editable-url-input {
+  display: block;
+  margin-top: 0.25rem;
+  width: 100%;
+  max-width: 20rem;
+  border: 1px solid var(--color-card-border);
+  border-radius: 2px;
+  background: var(--color-paper);
+  padding: 0.375rem 0.5rem;
+  font-size: 12px;
+  color: var(--color-ink);
+}
+
 /* Reveal (components/shell/Reveal.tsx): About, product cards, and work
    tracks fade/rise/scale into view on scroll. Same gating as the writing
    animation above and for the same reason: no-JS and reduced-motion readers
