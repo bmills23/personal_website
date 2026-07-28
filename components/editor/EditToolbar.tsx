@@ -22,17 +22,31 @@ export function EditToolbar() {
   async function handleRevert() {
     if (!updatedAt) return
     if (!window.confirm('Revert the most recent save?')) return
-    const result = await revertLastSave({ updatedAt })
-    if (result.ok) {
-      setUpdatedAt(result.updatedAt)
-      router.refresh()
-    } else {
-      reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
+    try {
+      const result = await revertLastSave({ updatedAt })
+      if (result.ok) {
+        setUpdatedAt(result.updatedAt)
+        router.refresh()
+      } else {
+        reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
+      }
+    } catch {
+      // A rejected action (network/DB hiccup) reads the same as the
+      // action's own 'server' error, rather than an unhandled rejection.
+      reportStatus({ state: 'error', message: saveErrorMessage('server') })
     }
   }
 
   async function handleSignOut() {
-    await signOutAction()
+    try {
+      await signOutAction()
+    } catch {
+      // Sign-out itself failed: surface it and stay put. Clearing the hint
+      // or navigating here would drop the admin's hint on a still-valid
+      // session, purely because the sign-out call had a transient failure.
+      reportStatus({ state: 'error', message: saveErrorMessage('server') })
+      return
+    }
     clearEditorHint()
     window.location.assign('/')
   }

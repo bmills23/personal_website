@@ -70,16 +70,24 @@ export function EditProvider({ children }: { children: React.ReactNode }) {
     // silent, never hit the network. This is the whole point of the hint.
     if (!hasEditorHint()) return
 
-    getEditorState().then((result) => {
-      if (!active) return
-      if (result.ok) {
-        setSession('admin')
-        setUpdatedAtState(result.updatedAt)
-      } else {
+    getEditorState()
+      .then((result) => {
+        if (!active) return
+        if (result.ok) {
+          setSession('admin')
+          setUpdatedAtState(result.updatedAt)
+        } else {
+          setSession('none')
+          clearEditorHint()
+        }
+      })
+      .catch(() => {
+        if (!active) return
+        // A transient failure (network/DB hiccup) is not a definitive "not
+        // admin" answer the way { ok: false } is, so the hint survives and
+        // the next mount tries again, unlike the branch above.
         setSession('none')
-        clearEditorHint()
-      }
-    })
+      })
 
     return () => {
       active = false

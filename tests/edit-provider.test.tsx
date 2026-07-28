@@ -28,6 +28,11 @@ function EditingProbe() {
   return <span data-testid="editing">{String(editing)}</span>
 }
 
+function SessionProbe() {
+  const { session } = useEditor()
+  return <span data-testid="session">{session}</span>
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   window.localStorage.clear()
@@ -85,6 +90,21 @@ describe('EditProvider hint gating', () => {
     expect(window.localStorage.getItem(HINT_KEY)).not.toBeNull()
     expect(getEditorState).toHaveBeenCalled()
   })
+
+  it('when getEditorState rejects (transient failure), session settles to none but the hint is preserved', async () => {
+    window.localStorage.setItem(HINT_KEY, '1')
+    getEditorState.mockRejectedValue(new Error('network down'))
+    render(
+      <EditProvider>
+        <SessionProbe />
+      </EditProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('session').textContent).toBe('none'))
+    // A transient failure is not a definitive "not admin" answer, so unlike
+    // the { ok: false } case above, the hint must survive it.
+    expect(window.localStorage.getItem(HINT_KEY)).toBe('1')
+    expect(screen.queryByRole('button', { name: /edit page/i })).toBeNull()
+  })
 })
 
 describe('edit toggle', () => {
@@ -140,6 +160,64 @@ describe('revert last save', () => {
     fireEvent.click(button)
 
     expect(revertLastSave).not.toHaveBeenCalled()
+  })
+
+  it('when revertLastSave rejects, the status region surfaces the server error message', async () => {
+    window.localStorage.setItem(HINT_KEY, '1')
+    getEditorState.mockResolvedValue({ ok: true, updatedAt: 'T1' })
+    revertLastSave.mockRejectedValue(new Error('db down'))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(
+      <EditProvider>
+        <div>page</div>
+      </EditProvider>,
+    )
+    const button = await screen.findByRole('button', { name: /revert last save/i })
+    fireEvent.click(button)
+
+    await waitFor(() => expect(screen.getByText('Not saved: server error.')).toBeTruthy())
+    expect(refresh).not.toHaveBeenCalled()
+  })
+})
+
+describe('sign out', () => {
+  it('when signOutAction rejects, the status region surfaces the server error and the page does not navigate', async () => {
+    window.localStorage.setItem(HINT_KEY, '1')
+    getEditorState.mockResolvedValue({ ok: true, updatedAt: 'T1' })
+    signOutAction.mockRejectedValue(new Error('auth down'))
+
+    // window.location's own properties (assign, reload, ...) are spec'd
+    // unforgeable, so vi.spyOn cannot patch location.assign directly (it
+    // throws "Cannot redefine property: assign"). window.location itself,
+    // the reference on window, IS configurable, so replace the whole object
+    // for this test and restore it afterward.
+    const originalLocation = window.location
+    const assignSpy = vi.fn()
+    // @ts-expect-error -- deleting to replace with a spy-augmented stand-in
+    delete window.location
+    // @ts-expect-error -- same
+    window.location = { ...originalLocation, assign: assignSpy }
+
+    try {
+      render(
+        <EditProvider>
+          <div>page</div>
+        </EditProvider>,
+      )
+      const button = await screen.findByRole('button', { name: /sign out/i })
+      fireEvent.click(button)
+
+      await waitFor(() => expect(screen.getByText('Not saved: server error.')).toBeTruthy())
+      expect(assignSpy).not.toHaveBeenCalled()
+      // Sign-out itself failed, so the hint must not be cleared either.
+      expect(window.localStorage.getItem(HINT_KEY)).not.toBeNull()
+    } finally {
+      // @ts-expect-error -- restore the real Location object
+      delete window.location
+      // @ts-expect-error -- same
+      window.location = originalLocation
+    }
   })
 })
 
