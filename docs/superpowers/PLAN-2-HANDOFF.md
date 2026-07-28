@@ -1,5 +1,19 @@
 # Plan 2 Handoff: the browser editor
 
+> **Status update, 2026-07-28: Plan 2 has shipped.** The browser editor
+> described below as future work is built, tested, and merged. For day-to-day
+> usage and the one-time production OAuth checklist, see `docs/EDITOR.md`.
+> For the implementation record, see
+> `docs/superpowers/plans/2026-07-28-personal-website-editor.md`.
+>
+> One instruction below is stale and was corrected during implementation:
+> "The save API" section (under "What Plan 2 has to build") describes calling
+> `updateTag('content')` from a route handler. That is not possible: Next 16
+> throws when `updateTag` is called from a Route Handler (verified against
+> the installed `next@16.2.12` source). The shipped design uses Server
+> Actions instead, which also gives read-your-writes and built-in origin
+> checks. Everything else below reflects what was actually built.
+
 **Written:** 2026-07-27, after Plan 1 shipped to production.
 
 Plan 1 built the public site. Plan 2 builds the thing originally asked for: log in with
