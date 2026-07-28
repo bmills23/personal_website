@@ -102,9 +102,13 @@ export function EditableLink({
 
   return (
     <span className={className} onClick={(event) => event.preventDefault()}>
-      <EditableField path={labelPath} text={label} as="span" />
+      {/* key={label} / key={url}: both EditableField and UrlField freeze
+          their value into a ref at mount and never re-sync it, so each is
+          keyed on its own incoming value here for the same reason
+          Editable.tsx's `Editable` is - see that component's doc comment. */}
+      <EditableField key={label} path={labelPath} text={label} as="span" />
       {children}
-      <UrlField urlPath={urlPath} url={url} />
+      <UrlField key={url} urlPath={urlPath} url={url} />
     </span>
   )
 }

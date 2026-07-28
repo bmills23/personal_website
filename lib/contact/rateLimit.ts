@@ -1,11 +1,45 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { getSql } from '@/lib/db'
 
 const WINDOW_MINUTES = 60
 const MAX_PER_WINDOW = 5
 
+// Generated at most once per process, only ever used as a last resort (see
+// hashIp below), and never persisted anywhere. Kept in module state rather
+// than regenerated per call so hashIp stays deterministic for the life of
+// this process even in that fallback case.
+let fallbackSalt: string | null = null
+function getFallbackSalt(): string {
+  if (fallbackSalt === null) fallbackSalt = randomBytes(32).toString('hex')
+  return fallbackSalt
+}
+
+/**
+ * Salts with, in preference order: a dedicated CONTACT_IP_SALT, then
+ * AUTH_SECRET (today's default), then, only if NEITHER is configured, a
+ * random salt generated once for this process.
+ *
+ * CONTACT_IP_SALT exists so rotating AUTH_SECRET - which invalidates every
+ * editor session, see docs/EDITOR.md - does not also silently reset every
+ * rate-limit bucket as a side effect; it is entirely optional, and omitting
+ * it reproduces today's behavior exactly (AUTH_SECRET is still the salt).
+ *
+ * The random-salt fallback closes a real hole: hashing with a fixed,
+ * publicly-known constant (this function's previous behavior whenever
+ * AUTH_SECRET was unset) is trivially reversible, since the IPv4 address
+ * space is small enough to enumerate wholesale - turning what is meant to
+ * be a privacy measure into stored PII. A random per-process salt keeps the
+ * hash non-reversible while staying deterministic within one running
+ * process, so hashIp(ip) is still stable for that process's lifetime and
+ * the rate limiter's grouping keeps working; it is NOT stable across
+ * restarts, so in this fallback-only configuration buckets reset on every
+ * process restart, which is an acceptable trade-off for an already
+ * misconfigured deployment (no AUTH_SECRET means the editor itself is also
+ * unconfigured, see lib/auth/index.ts's authConfigured()) and strictly
+ * better than a hash anyone can reverse.
+ */
 export function hashIp(ip: string): string {
-  const salt = process.env.AUTH_SECRET ?? 'unsalted'
+  const salt = process.env.CONTACT_IP_SALT || process.env.AUTH_SECRET || getFallbackSalt()
   return createHash('sha256').update(`${salt}:${ip}`).digest('hex').slice(0, 32)
 }
 

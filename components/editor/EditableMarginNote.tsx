@@ -42,7 +42,9 @@ export function EditableMarginNote({
 
   return (
     <Wrapper className="md:pt-2">
+      {/* key={text}: see the matching comment in Editable.tsx's `Editable`. */}
       <EditableField
+        key={text}
         path={path}
         text={text}
         as="p"

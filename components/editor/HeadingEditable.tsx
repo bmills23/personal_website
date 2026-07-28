@@ -30,5 +30,8 @@ export function HeadingEditable({
     )
   }
 
-  return <EditableField path={path} text={text} as="h2" className={className} />
+  // key={text}: forces a fresh EditableField instance (fresh frozen
+  // snapshot) whenever the underlying document value actually changes - see
+  // the matching comment in Editable.tsx's `Editable`, which this mirrors.
+  return <EditableField key={text} path={path} text={text} as="h2" className={className} />
 }
