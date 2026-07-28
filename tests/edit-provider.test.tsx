@@ -144,6 +144,10 @@ describe('revert last save', () => {
 
     await waitFor(() => expect(revertLastSave).toHaveBeenCalledWith({ updatedAt: 'T1' }))
     await waitFor(() => expect(refresh).toHaveBeenCalled())
+    // A successful revert must report 'saved', the same as a successful
+    // field/array save, so the aria-live region gives real confirmation
+    // rather than leaving whatever status text was already there.
+    await waitFor(() => expect(screen.getByText('Saved')).toBeTruthy())
   })
 
   it('confirm false does not call revertLastSave', async () => {

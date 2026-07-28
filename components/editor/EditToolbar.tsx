@@ -29,6 +29,14 @@ export function EditToolbar() {
     // action already reads back as { ok: false, error: 'server' }.
     const result = await enqueueSave((token) => revertLastSave({ updatedAt: token }))
     if (result.ok) {
+      // Consistent with commitField (Editable.tsx) and runArraySave
+      // (ArrayControls.tsx): every successful write reports 'saved' so the
+      // aria-live region gives the owner visible confirmation, not just a
+      // silent router.refresh(). Without this, the status region keeps
+      // showing whatever it last said (which could be stale 'Saved' text
+      // from an earlier, unrelated save, or blank after a reload), which is
+      // not a real signal that THIS revert succeeded.
+      reportStatus({ state: 'saved' })
       router.refresh()
     } else {
       reportStatus({ state: 'error', message: saveErrorMessage(result.error) })

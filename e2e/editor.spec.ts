@@ -57,6 +57,31 @@ async function expectToolbarVisible(page: Page): Promise<void> {
   ).toBeVisible({ timeout: 15_000 })
 }
 
+/**
+ * Waits for the toolbar's aria-live status region to leave its transient
+ * states ('' idle, 'Saving') and settle on a terminal one (either 'Saved' or
+ * one of saveErrorMessage's strings), then returns that final text.
+ *
+ * This exists so that every place in this file that performs a save/revert
+ * and then decides whether to flip a `markerPending` cleanup flag can do so
+ * from the REAL outcome, not from an assertion that may or may not have
+ * thrown. The critical property: the caller reads the return value and
+ * updates its own bookkeeping BEFORE making any assertion against it, so a
+ * later assertion failing (e.g. this returns an error string, not 'Saved')
+ * can never leave bookkeeping in a state that assumes the mutation
+ * succeeded when it did not, and - the specific bug this replaced - a
+ * mutation that DID succeed can never be left looking "still pending" just
+ * because a status assertion happened to be checked before the mutation's
+ * own success was recorded.
+ */
+async function waitForSaveOutcome(page: Page): Promise<string> {
+  const status = page.locator('[aria-live="polite"]')
+  await expect
+    .poll(async () => (await status.textContent()) ?? '', { timeout: 15_000 })
+    .not.toMatch(/^(|Saving)$/)
+  return (await status.textContent()) ?? ''
+}
+
 test.describe('visitor DOM purity', () => {
   test('a logged-out visitor sees zero editing affordances anywhere in the DOM', async ({ page }) => {
     await page.goto('/')
@@ -152,19 +177,23 @@ test.describe('admin editing round-trip', () => {
     const heading = page.getByRole('textbox', { name: 'Edit about.heading' })
     const originalHeading = (await heading.textContent())?.trim() ?? ''
     const marker = `E2E heading ${testInfo.workerIndex}`
-    const status = page.locator('[aria-live="polite"]')
 
-    // Set once the marker save succeeds, cleared once the revert succeeds.
-    // The finally block below only acts while this is true, so a normal
-    // successful run (which already reverts as part of the flow) never
-    // double-reverts, and a run that fails partway still cleans up.
+    // Set once the marker save's outcome is REAL AND KNOWN to be a success,
+    // cleared the same way once the revert's outcome is known to be a
+    // success. Both flips happen before the corresponding `expect(...)`
+    // below, so a later assertion throwing can never leave this flag
+    // disagreeing with what actually happened server-side. The finally
+    // block below only acts while this is true: a normal successful run
+    // (whose main body already reverts) never double-reverts, and a run
+    // that fails partway still cleans up.
     let markerPending = false
     try {
       await heading.selectText()
       await heading.pressSequentially(marker)
       await heading.press('Enter')
-      await expect(status).toHaveText('Saved')
-      markerPending = true
+      const saveOutcome = await waitForSaveOutcome(page)
+      if (saveOutcome === 'Saved') markerPending = true
+      expect(saveOutcome, 'the marker save did not report success').toBe('Saved')
 
       await page.goto('/')
       await expect(page.locator('#about').getByRole('heading', { level: 2 })).toHaveText(marker)
@@ -172,8 +201,9 @@ test.describe('admin editing round-trip', () => {
       await expectToolbarVisible(page)
       page.once('dialog', (dialog) => dialog.accept())
       await page.getByRole('button', { name: 'Revert last save' }).click()
-      await expect(status).toHaveText('Saved')
-      markerPending = false
+      const revertOutcome = await waitForSaveOutcome(page)
+      if (revertOutcome === 'Saved') markerPending = false
+      expect(revertOutcome, 'Revert last save did not report success').toBe('Saved')
 
       await page.goto('/')
       await expect(page.locator('#about').getByRole('heading', { level: 2 })).toHaveText(originalHeading)
@@ -184,7 +214,10 @@ test.describe('admin editing round-trip', () => {
           await expectToolbarVisible(page)
           page.once('dialog', (dialog) => dialog.accept())
           await page.getByRole('button', { name: 'Revert last save' }).click()
-          await expect(status).toHaveText('Saved')
+          const cleanupOutcome = await waitForSaveOutcome(page)
+          if (cleanupOutcome !== 'Saved') {
+            throw new Error(`emergency revert did not report success (status: "${cleanupOutcome}")`)
+          }
         } catch (cleanupError) {
           console.error(
             `worker ${testInfo.workerIndex}: EMERGENCY CLEANUP FAILED - about.heading may still hold "${marker}"`,
@@ -225,8 +258,9 @@ test.describe('admin editing round-trip', () => {
         await headingA.selectText()
         await headingA.pressSequentially(markerA)
         await headingA.press('Enter')
-        await expect(pageA.locator('[aria-live="polite"]')).toHaveText('Saved')
-        markerPending = true
+        const saveOutcome = await waitForSaveOutcome(pageA)
+        if (saveOutcome === 'Saved') markerPending = true
+        expect(saveOutcome, 'page A save did not report success').toBe('Saved')
 
         // Page B never reloaded, so it still holds the pre-A token. Its
         // save must be refused as stale, not silently overwrite A's write.
@@ -246,7 +280,10 @@ test.describe('admin editing round-trip', () => {
             await expectToolbarVisible(pageA)
             pageA.once('dialog', (dialog) => dialog.accept())
             await pageA.getByRole('button', { name: 'Revert last save' }).click()
-            await expect(pageA.locator('[aria-live="polite"]')).toHaveText('Saved')
+            const cleanupOutcome = await waitForSaveOutcome(pageA)
+            if (cleanupOutcome !== 'Saved') {
+              throw new Error(`emergency revert did not report success (status: "${cleanupOutcome}")`)
+            }
           } catch (cleanupError) {
             console.error(
               `worker ${testInfo.workerIndex}: EMERGENCY CLEANUP FAILED - about.heading may still hold "${markerA}"`,
