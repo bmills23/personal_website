@@ -34,3 +34,7 @@ npm-debug.log*
 
 # Brainstorm companion
 .superpowers/
+.vercel
+.env*
+# .env.example carries no real values and documents the required variables.
+!.env.example
