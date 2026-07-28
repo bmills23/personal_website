@@ -1,4 +1,3 @@
-import { Fragment } from 'react'
 import type { Content } from '@/lib/content/schema'
 import { TapedCard } from '@/components/shell/TapedCard'
 import { Reveal } from '@/components/shell/Reveal'
@@ -67,22 +66,36 @@ export function Products({
               />
               <ul className="mt-4 flex flex-wrap gap-2">
                 {product.tags.map((tag, j) => (
-                  <Fragment key={j}>
-                    <Editable
-                      path={`products.${i}.tags.${j}`}
-                      text={tag}
-                      as="li"
-                      className="rounded-sm border border-card-border px-2 py-1 text-[11px] text-pencil"
-                    />
-                    <ArrayControls
-                      kind="tag"
-                      items={products}
-                      index={j}
-                      arrayKey={`products.${i}.tags`}
-                    />
-                  </Fragment>
+                  <Editable
+                    key={j}
+                    path={`products.${i}.tags.${j}`}
+                    text={tag}
+                    as="li"
+                    className="rounded-sm border border-card-border px-2 py-1 text-[11px] text-pencil"
+                  />
                 ))}
               </ul>
+              {/* ArrayControls renders a <span> in edit mode (null in view
+                  mode). A <span> is not a valid direct child of the <ul>
+                  above, so its per-tag remove control is rendered as its
+                  own row here, outside the list, rather than wrapped in an
+                  <li> inside it - wrapping would still leave an empty <li>
+                  in the DOM for a visitor even though ArrayControls itself
+                  renders null, since the wrapper element is not
+                  conditional on edit mode. Rendering entirely outside the
+                  <ul> keeps visitor markup byte-identical to before this
+                  fix: every array entry here still resolves to null in
+                  view mode, so React emits nothing at all. See the
+                  "visitor DOM purity" suite in e2e/editor.spec.ts. */}
+              {product.tags.map((_tag, j) => (
+                <ArrayControls
+                  key={j}
+                  kind="tag"
+                  items={products}
+                  index={j}
+                  arrayKey={`products.${i}.tags`}
+                />
+              ))}
               <ArrayAddButton kind="tag" items={products} arrayKey={`products.${i}.tags`} />
               <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-t border-card-border pt-3">
                 {product.links.map((link, j) => (

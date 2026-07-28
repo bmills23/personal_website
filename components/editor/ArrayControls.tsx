@@ -1,5 +1,6 @@
 'use client'
 
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveArray, type SaveResult } from '@/app/actions/content'
 import { ARRAY_LIMITS } from '@/lib/content/schema'
@@ -125,11 +126,31 @@ function capFor(kind: ArrayControlsKind): number {
  * being laundered through silently. DO NOT change this back to read the
  * execution-time token argument - see
  * `tests/array-controls-race.test.tsx`, which fails if you do.
+ *
+ * Click-time pinning (above) only closes the race window for a click that
+ * lands WHILE a save is in flight - `savingDisabled` (in the components
+ * below) independently closes that same window by disabling every button
+ * for its duration, so pinning is the deeper guarantee that holds even
+ * where disabling can't reach. Pinning does nothing, though, for the
+ * window AFTER a save resolves `ok`: `reportStatus({state:'saved'})`
+ * re-enables the buttons immediately, but `router.refresh()` (which
+ * re-renders this component with the fresh array as props) lands
+ * asynchronously. A second click inside that gap still reads `subArray`
+ * off stale props - exactly like the in-flight case - but this time pins a
+ * token that IS current (the first save's success already advanced it), so
+ * the server accepts it, and the second op's stale-computed payload
+ * silently overwrites the first op's change with no error at all.
+ * Wrapping `router.refresh()` in `startTransition` closes that
+ * post-success window the same way `savingDisabled` closes the in-flight
+ * one: `isPending` stays true until the refresh has actually landed and
+ * committed, so callers keep buttons disabled across both windows by
+ * checking `status.state === 'saving' || isPending`.
  */
 async function runArraySave({
   enqueueSave,
   reportStatus,
   router,
+  startTransition,
   clickToken,
   saveKey,
   value,
@@ -137,6 +158,7 @@ async function runArraySave({
   enqueueSave: (fn: (token: string) => Promise<SaveResult>) => Promise<SaveResult>
   reportStatus: (status: SaveStatus) => void
   router: { refresh: () => void }
+  startTransition: (fn: () => void) => void
   clickToken: string | null
   saveKey: string
   value: unknown
@@ -149,7 +171,9 @@ async function runArraySave({
   const result = await enqueueSave(() => saveArray({ key: saveKey, value, updatedAt: clickToken }))
   if (result.ok) {
     reportStatus({ state: 'saved' })
-    router.refresh()
+    startTransition(() => {
+      router.refresh()
+    })
   } else {
     reportStatus({ state: 'error', message: saveErrorMessage(result.error) })
     // A stale rejection means server state moved since this payload's base
@@ -157,7 +181,9 @@ async function runArraySave({
     // against current data. Other failures (invalid, unauthorized, server)
     // don't imply the visible data is out of date, so they don't refresh.
     if (result.error === 'stale') {
-      router.refresh()
+      startTransition(() => {
+        router.refresh()
+      })
     }
   }
 }
@@ -183,6 +209,7 @@ export function ArrayControls({
 }) {
   const { session, editing, enqueueSave, reportStatus, updatedAt, status } = useEditor()
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
   const isEditing = session === 'admin' && editing
 
   if (!isEditing) return null
@@ -192,8 +219,14 @@ export function ArrayControls({
   // Disabling every button while ANY save is in flight (not just this row's
   // own) shrinks the window for the stale-payload race above even further:
   // the click-time-token fix is what makes a race safe, this is what makes
-  // one rarer to begin with.
-  const savingDisabled = status.state === 'saving'
+  // one rarer to begin with. `isPending` extends that same disabling
+  // through the POST-success window too - `status.state` alone flips back
+  // to 'saved' (not 'saving') the instant a save resolves, before
+  // `router.refresh()` (wrapped in `startTransition` in `runArraySave`
+  // above) has actually re-rendered this component with fresh props - see
+  // that function's doc comment for why a click landing in that gap is
+  // exactly the same stale-payload hazard as one landing mid-save.
+  const savingDisabled = status.state === 'saving' || isPending
 
   function handleRemove() {
     if (savingDisabled) return
@@ -204,6 +237,7 @@ export function ArrayControls({
       enqueueSave,
       reportStatus,
       router,
+      startTransition,
       clickToken: updatedAt,
       saveKey,
       value: build(withoutIndex(subArray, index)),
@@ -216,6 +250,7 @@ export function ArrayControls({
       enqueueSave,
       reportStatus,
       router,
+      startTransition,
       clickToken: updatedAt,
       saveKey,
       value: build(swapped(subArray, index, index - 1)),
@@ -228,6 +263,7 @@ export function ArrayControls({
       enqueueSave,
       reportStatus,
       router,
+      startTransition,
       clickToken: updatedAt,
       saveKey,
       value: build(swapped(subArray, index, index + 1)),
@@ -297,6 +333,7 @@ export function ArrayAddButton({
 }) {
   const { session, editing, enqueueSave, reportStatus, updatedAt, status } = useEditor()
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
   const isEditing = session === 'admin' && editing
 
   if (!isEditing) return null
@@ -304,7 +341,11 @@ export function ArrayAddButton({
   const { saveKey, subArray, build } = resolveTarget(kind, items, arrayKey)
   const cap = capFor(kind)
   const atCap = subArray.length >= cap
-  const disabled = atCap || status.state === 'saving'
+  // See the matching comment in ArrayControls above: `isPending` keeps this
+  // disabled through the post-success window while `router.refresh()`
+  // (wrapped in `startTransition` by `runArraySave`) is still landing, not
+  // just while `status.state === 'saving'`.
+  const disabled = atCap || status.state === 'saving' || isPending
 
   function handleAdd() {
     if (disabled) return
@@ -312,6 +353,7 @@ export function ArrayAddButton({
       enqueueSave,
       reportStatus,
       router,
+      startTransition,
       clickToken: updatedAt,
       saveKey,
       value: build([...subArray, buildTemplate(kind, subArray)]),

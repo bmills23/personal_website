@@ -86,6 +86,10 @@ editor does not use.
   `AUTH_GITHUB_SECRET`, `AUTH_SECRET`, or `ADMIN_GITHUB_LOGIN` is missing
   from the environment. In production this means the one-time setup above
   has not been done yet.
+- **Fields aren't editable (clicking does nothing) in Firefox**: editable
+  fields use `contentEditable="plaintext-only"`, which needs Firefox 136+;
+  older Firefox versions silently fail to make the field editable. Chrome
+  and Safari support it at any recent version.
 
 ## Graceful degradation
 
