@@ -7,6 +7,7 @@ describe('isEditablePath: allows real fields', () => {
     'hero.lede',
     'hero.kicker',
     'hero.stamp',
+    'hero.marginNote',
     'about.heading',
     'about.marginNote',
     'about.paragraphs.0',
@@ -27,6 +28,7 @@ describe('isEditablePath: rejects everything else', () => {
   it.each([
     ['unknown top-level key', 'admin.isAdmin'],
     ['unknown leaf', 'hero.password'],
+    ['near-miss casing on hero.marginNote', 'hero.marginnote'],
     ['the version field', 'version'],
     ['a whole object', 'hero'],
     ['a whole array', 'products'],

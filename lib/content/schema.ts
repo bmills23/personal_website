@@ -56,6 +56,13 @@ export const contentSchema = z.object({
     lede: z.string().min(1).max(400),
     stamp: z.string().min(1).max(20),
     highlights: z.array(z.string().min(1).max(60)).max(ARRAY_LIMITS['hero.highlights']),
+    // .default(''): the live production document predates this field, so it
+    // has no `hero.marginNote` key at all. A required field here would make
+    // contentSchema.safeParse fail on the very next deploy, and
+    // lib/content/read.ts falls back to seed/content.json on any parse
+    // failure - silently reverting the whole site's live-edited content.
+    // The default lets a document missing the key parse successfully with ''.
+    marginNote: z.string().max(80).default(''),
   }),
   about: z.object({
     heading: z.string().min(1).max(80),

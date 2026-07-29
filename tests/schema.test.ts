@@ -43,4 +43,28 @@ describe('contentSchema', () => {
     good.products[0].links[0].url = 'https://example.com'
     expect(contentSchema.safeParse(good).success).toBe(true)
   })
+
+  // Guard against a silent production outage: the live database document
+  // predates hero.marginNote, so it has no such key at all. If this field
+  // were required, that document would fail contentSchema.safeParse on
+  // every request and lib/content/read.ts would silently fall back to
+  // seed/content.json, reverting the whole site's live-edited content with
+  // no error surfaced to a visitor. The `.default('')` on the schema is what
+  // prevents that: a document missing the key must still parse, yielding ''.
+  it('parses a hero document with no marginNote key at all, yielding an empty string', () => {
+    const doc = structuredClone(seed) as any
+    delete doc.hero.marginNote
+    expect('marginNote' in doc.hero).toBe(false)
+    const result = contentSchema.safeParse(doc)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.hero.marginNote).toBe('')
+    }
+  })
+
+  it('rejects a hero.marginNote longer than 80 characters', () => {
+    const bad = structuredClone(seed) as any
+    bad.hero.marginNote = 'x'.repeat(81)
+    expect(contentSchema.safeParse(bad).success).toBe(false)
+  })
 })
